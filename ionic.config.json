@@ -1,0 +1,7 @@
+{
+  "name": "lift-mate",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "custom"
+}

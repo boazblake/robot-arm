@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Lift-Mate — Playback Mockup</title>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core@8.4.3/dist/ionic/ionic.esm.js"></script>
+  <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core@8.4.3/dist/ionic/ionic.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core@8.4.3/css/ionic.bundle.css">
+  <style>
+    :root { --bg:#07111f; --surface:#111a2d; --surface2:#18243f; --border:rgba(255,255,255,.08); --text:#f4f7ff; --muted:#90a0c6; --primary:#7b61ff; --success:#1fd1a4; --danger:#ff6b81; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif; background: radial-gradient(circle at top,#182346 0,#07111f 50%,#050a12 100%); color:var(--text); }
+    .phone { width:390px; height:844px; border-radius:40px; overflow:hidden; background:linear-gradient(180deg,#09101e 0,#07111f 100%); position:relative; box-shadow:0 24px 80px rgba(0,0,0,.45), 0 0 0 12px rgba(255,255,255,.05); }
+    .content { height:100%; overflow:auto; padding-bottom:90px; }
+    .header { padding:18px 16px 14px; background:linear-gradient(135deg,#7b61ff 0,#5a43db 45%,#18223d 100%); position:relative; overflow:hidden; }
+    .header::after { content:""; position:absolute; width:200px; height:200px; border-radius:50%; background:rgba(255,255,255,.06); top:-46px; right:-40px; }
+    .header h1 { margin:0; font-size:28px; line-height:1.05; letter-spacing:-.03em; position:relative; z-index:1; }
+    .header p { margin:6px 0 0; color:rgba(255,255,255,.75); font-size:14px; line-height:1.45; position:relative; z-index:1; max-width: 280px; }
+    .summary-row { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:14px 16px 8px; }
+    .summary { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:12px; text-align:center; }
+    .summary .value { font-size:22px; font-weight:900; }
+    .summary .label { margin-top:2px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+    .section { padding:12px 16px 0; }
+    .section-head { display:flex; justify-content:space-between; align-items:end; margin-bottom:10px; }
+    .section-head h2 { margin:0; font-size:17px; }
+    .section-head span { color:var(--muted); font-size:12px; }
+    .card { border-radius:20px; background:var(--surface); border:1px solid var(--border); margin-bottom:10px; overflow:hidden; }
+    .recording { display:flex; gap:12px; padding:12px; }
+    .thumb { width:82px; height:82px; border-radius:16px; background:linear-gradient(180deg,#0d1220,#18223d); display:grid; place-items:center; flex:0 0 auto; position:relative; overflow:hidden; }
+    .thumb svg { width:82px; height:82px; opacity:.25; }
+    .rec-info { flex:1; min-width:0; }
+    .rec-info h3 { margin:0 0 2px; font-size:16px; }
+    .rec-info p { margin:0; color:var(--muted); font-size:13px; line-height:1.4; }
+    .meta { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 9px; border-radius:999px; background:rgba(255,255,255,.05); color:#dfe5ff; font-size:11px; font-weight:700; }
+    .pill.good { background:rgba(31,209,164,.1); color:#6ff2c4; }
+    .card-foot { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-top:1px solid rgba(255,255,255,.06); }
+    .card-foot button { border:0; background:none; color:#9e8fff; font-weight:800; display:flex; align-items:center; gap:6px; }
+    .empty, .error, .player, .settings { display:none; }
+    .message { display:flex; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:54px 20px; }
+    .message .icon { width:84px; height:84px; border-radius:50%; display:grid; place-items:center; background:rgba(255,255,255,.05); font-size:36px; margin-bottom:12px; }
+    .message h3 { margin:0 0 6px; font-size:20px; }
+    .message p { margin:0 0 18px; color:var(--muted); font-size:14px; line-height:1.5; max-width: 280px; }
+    .button { min-height:50px; border:0; border-radius:16px; padding:0 16px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
+    .button.primary { background:linear-gradient(135deg,var(--primary),#9b8cff); color:#fff; }
+    .button.secondary { background:rgba(255,255,255,.06); color:#fff; border:1px solid rgba(255,255,255,.08); }
+    .player { position:absolute; inset:0; z-index:20; background:#060b13; flex-direction:column; }
+    .player-top { position:absolute; inset:12px 12px auto; display:flex; justify-content:space-between; align-items:center; gap:10px; z-index:2; }
+    .player-badge { background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.08); border-radius:999px; padding:10px 12px; font-size:12px; font-weight:800; backdrop-filter: blur(14px); }
+    .canvas { flex:1; position:relative; display:grid; place-items:center; overflow:hidden; }
+    .canvas .bg { width:100%; height:100%; background: radial-gradient(circle at center, rgba(123,97,255,.16), transparent 45%), linear-gradient(180deg,#0f1424 0,#060b13 100%); opacity:1; }
+    .frame { position:absolute; inset:0; display:grid; place-items:center; }
+    .frame svg { width:330px; height:430px; opacity:.85; }
+    .landmark { fill:#1fd1a4; }
+    .link { stroke:rgba(31,209,164,.45); stroke-width:4; stroke-linecap:round; }
+    .timeline { padding:12px 16px 8px; background:rgba(0,0,0,.65); border-top:1px solid rgba(255,255,255,.04); }
+    input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:999px; background:rgba(255,255,255,.18); }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--primary); box-shadow:0 0 0 6px rgba(123,97,255,.15); }
+    .times { display:flex; justify-content:space-between; color:rgba(255,255,255,.55); font-size:11px; margin-top:4px; }
+    .controls { position:relative; padding:12px 16px 18px; display:flex; align-items:center; justify-content:center; gap:16px; background:rgba(0,0,0,.65); }
+    .controls button { width:50px; height:50px; border-radius:18px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.06); color:#dfe5ff; display:grid; place-items:center; }
+    .controls button.play { width:66px; height:66px; border-radius:22px; background:linear-gradient(135deg,var(--primary),#9b8cff); color:#fff; }
+    .controls button.danger { position:absolute; left:16px; background:rgba(255,107,129,.14); color:#ffd0d8; }
+    .controls button.settings { position:absolute; right:16px; }
+    .sheet { position:absolute; inset:auto 0 0; z-index:25; display:none; background:#0e1526; border-top-left-radius:24px; border-top-right-radius:24px; border-top:1px solid rgba(255,255,255,.06); padding:14px 16px 18px; }
+    .sheet .handle { width:36px; height:4px; border-radius:999px; background:rgba(255,255,255,.18); margin:0 auto 14px; }
+    .sheet h3 { margin:0 0 14px; font-size:18px; }
+    .speed { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .speed button { min-height:44px; border-radius:14px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.05); color:#d8e0fa; font-weight:800; }
+    .speed button.active { background:rgba(123,97,255,.18); color:#d9d2ff; border-color:rgba(123,97,255,.25); }
+    .toggle-row { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.06); color:#dfe5ff; font-weight:700; }
+    .toggle-row:last-of-type { border-bottom:0; }
+    .switch { width:44px; height:26px; border-radius:999px; background:rgba(255,255,255,.16); position:relative; }
+    .switch::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .2s; }
+    .toggle-row.on .switch { background:rgba(123,97,255,.8); }
+    .toggle-row.on .switch::after { transform:translateX(18px); }
+    .state-buttons { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; background:rgba(6,10,18,.9); border:1px solid rgba(255,255,255,.08); padding:8px; border-radius:999px; backdrop-filter:blur(16px); }
+    .state-buttons button { border:0; border-radius:999px; padding:8px 11px; background:rgba(255,255,255,.06); color:#d4dcf4; font-size:12px; font-weight:700; }
+    .state-buttons button.active { background:var(--primary); color:#fff; }
+    .state-empty .empty, .state-error .error, .state-player .player, .state-paused .player, .state-settings .player { display:flex; }
+    .state-settings .sheet { display:block; }
+    .state-paused .controls .play { background: rgba(255,255,255,.08); }
+    @media (max-width:420px) { body { display:block; background:#07111f; } .phone { width:100%; height:100vh; border-radius:0; } .state-buttons { display:none; } }
+  </style>
+</head>
+<body class="state-list">
+  <div class="phone">
+    <div class="content">
+      <div class="header">
+        <h1>Review what the camera saw.</h1>
+        <p>Open a session, scrub the frames, and check where form changed.</p>
+      </div>
+
+      <div class="summary-row">
+        <div class="summary"><div class="value">12</div><div class="label">Sessions</div></div>
+        <div class="summary"><div class="value">24m</div><div class="label">Total review</div></div>
+        <div class="summary"><div class="value">91</div><div class="label">Best form</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2>Recent recordings</h2><span>Swipe to delete later</span></div>
+        <div class="card recording">
+          <div class="thumb"><svg viewBox="0 0 100 100"><circle cx="50" cy="24" r="8" stroke="#fff" stroke-width="3" fill="none"/><path d="M50 32 L50 56 M50 40 L36 50 M50 40 L64 50 M50 56 L38 78 M50 56 L62 78" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="rec-info"><h3>Squat · Session 12</h3><p>Today · 8:42 · 24 reps</p><div class="meta"><span class="pill good">91 form</span><span class="pill">3 sets</span><span class="pill">Saved locally</span></div></div>
+        </div>
+        <div class="card recording">
+          <div class="thumb"><svg viewBox="0 0 100 100"><circle cx="50" cy="24" r="8" stroke="#fff" stroke-width="3" fill="none"/><path d="M50 32 L50 56 M50 40 L36 50 M50 40 L64 50 M50 56 L38 78 M50 56 L62 78" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="rec-info"><h3>Bench Press · Session 11</h3><p>Yesterday · 6:11 · 18 reps</p><div class="meta"><span class="pill">84 form</span><span class="pill">2 sets</span><span class="pill">Needs review</span></div></div>
+        </div>
+        <div class="card recording">
+          <div class="thumb"><svg viewBox="0 0 100 100"><circle cx="50" cy="24" r="8" stroke="#fff" stroke-width="3" fill="none"/><path d="M50 32 L50 56 M50 40 L36 50 M50 40 L64 50 M50 56 L38 78 M50 56 L62 78" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="rec-info"><h3>Press work · Session 10</h3><p>Thu · 5:28 · 14 reps</p><div class="meta"><span class="pill">79 form</span><span class="pill">1 set</span><span class="pill">Short clip</span></div></div>
+        </div>
+      </div>
+
+      <div class="section empty message">
+        <div class="icon"><ion-icon name="videocam-outline"></ion-icon></div>
+        <h3>No recordings yet</h3>
+        <p>Finish a set on the Exercise screen and come back here to inspect the frames.</p>
+        <a class="button primary" href="#start"><ion-icon name="barbell-outline"></ion-icon>&nbsp;Start Exercise</a>
+      </div>
+
+      <div class="section error message">
+        <div class="icon" style="background:rgba(255,107,129,.12);color:#ff99a7;"><ion-icon name="warning-outline"></ion-icon></div>
+        <h3>Couldn’t load a session</h3>
+        <p>The local recording file is missing or incomplete. Retry, or go back to the list.</p>
+        <a class="button primary" href="#retry">Retry</a>
+      </div>
+    </div>
+
+    <section class="player">
+      <div class="player-top">
+        <div class="player-badge">Squat · 24 reps</div>
+        <div class="player-badge">1.0x</div>
+      </div>
+      <div class="canvas">
+        <div class="bg"></div>
+        <div class="frame">
+          <svg viewBox="0 0 330 430" fill="none" aria-hidden="true">
+            <line class="link" x1="165" y1="74" x2="165" y2="158" />
+            <line class="link" x1="165" y1="104" x2="124" y2="140" />
+            <line class="link" x1="165" y1="104" x2="206" y2="140" />
+            <line class="link" x1="165" y1="158" x2="138" y2="220" />
+            <line class="link" x1="165" y1="158" x2="192" y2="220" />
+            <circle class="landmark" cx="165" cy="66" r="8" />
+            <circle class="landmark" cx="165" cy="102" r="7" />
+            <circle class="landmark" cx="124" cy="140" r="6" />
+            <circle class="landmark" cx="206" cy="140" r="6" />
+            <circle class="landmark" cx="165" cy="158" r="7" />
+            <circle class="landmark" cx="138" cy="220" r="7" />
+            <circle class="landmark" cx="192" cy="220" r="7" />
+          </svg>
+        </div>
+      </div>
+      <div class="timeline">
+        <input type="range" min="0" max="100" value="42" />
+        <div class="times"><span>00:00</span><span>03:42</span><span>08:42</span></div>
+      </div>
+      <div class="controls">
+        <button class="danger"><ion-icon name="trash-outline"></ion-icon></button>
+        <button><ion-icon name="play-skip-back-outline"></ion-icon></button>
+        <button class="play"><ion-icon name="pause"></ion-icon></button>
+        <button><ion-icon name="play-skip-forward-outline"></ion-icon></button>
+        <button class="settings"><ion-icon name="settings-outline"></ion-icon></button>
+      </div>
+    </section>
+
+    <section class="sheet">
+      <div class="handle"></div>
+      <h3>Playback settings</h3>
+      <div class="section-head" style="margin:0 0 10px;"><span>Speed</span><span>Landmarks</span></div>
+      <div class="speed" style="margin-bottom:12px;">
+        <button>0.5x</button><button class="active">1x</button><button>1.5x</button><button>2x</button>
+      </div>
+      <div class="toggle-row on"><span>Pose</span><span class="switch"></span></div>
+      <div class="toggle-row on"><span>Hands</span><span class="switch"></span></div>
+      <div class="toggle-row"><span>Face</span><span class="switch"></span></div>
+      <div style="margin-top:14px;"><a class="button secondary" href="#done" style="width:100%;">Done</a></div>
+    </section>
+  </div>
+
+  <div class="state-buttons">
+    <button class="active" data-state="list">List</button>
+    <button data-state="player">Player</button>
+    <button data-state="paused">Paused</button>
+    <button data-state="settings">Settings</button>
+    <button data-state="empty">Empty</button>
+    <button data-state="error">Error</button>
+  </div>
+
+  <script>
+    const body = document.body;
+    const apply = (state) => {
+      body.className = 'state-' + state;
+      document.querySelectorAll('.state-buttons [data-state]').forEach((b) => b.classList.toggle('active', b.getAttribute('data-state') === state));
+      document.querySelector('.player').style.display = (state === 'player' || state === 'paused' || state === 'settings') ? 'flex' : 'none';
+      document.querySelector('.sheet').style.display = state === 'settings' ? 'block' : 'none';
+    };
+    document.querySelectorAll('.state-buttons [data-state]').forEach((btn) => btn.addEventListener('click', () => apply(btn.getAttribute('data-state'))));
+    apply('list');
+  </script>
+</body>
+</html>

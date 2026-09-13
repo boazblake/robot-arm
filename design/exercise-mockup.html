@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Lift-Mate — Exercise Mockup</title>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core@8.4.3/dist/ionic/ionic.esm.js"></script>
+  <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core@8.4.3/dist/ionic/ionic.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core@8.4.3/css/ionic.bundle.css">
+  <style>
+    :root { --bg:#07111f; --surface:#10192d; --surface2:#172340; --border:rgba(255,255,255,.08); --text:#f4f7ff; --muted:#8f9bbd; --primary:#7b61ff; --success:#1fd1a4; --warning:#ffbf4d; --danger:#ff6b81; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif; background: radial-gradient(circle at top,#182346 0,#07111f 48%,#050a12 100%); color:var(--text); }
+    .phone { width:390px; height:844px; border-radius:40px; overflow:hidden; background:linear-gradient(180deg,#09101e 0,#07111f 100%); position:relative; box-shadow:0 24px 80px rgba(0,0,0,.45), 0 0 0 12px rgba(255,255,255,.05); }
+    .content { height:100%; overflow:auto; }
+    .camera { position:relative; height:66%; background: linear-gradient(180deg, #080d18 0%, #111a2e 40%, #09121f 100%); overflow:hidden; }
+    .camera::before, .camera::after { content:""; position:absolute; border-radius:50%; background:rgba(255,255,255,.03); }
+    .camera::before { width:210px; height:210px; right:-40px; top:-40px; }
+    .camera::after { width:180px; height:180px; left:-50px; bottom:40px; }
+    .topbar { position:absolute; inset: 14px 14px auto; display:flex; justify-content:space-between; align-items:center; z-index:5; gap:10px; }
+    .selector, .status-pill, .chip, .dock button, .sheet { backdrop-filter: blur(14px); }
+    .selector { flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:12px 14px; border-radius:16px; background:rgba(0,0,0,.52); border:1px solid rgba(255,255,255,.08); }
+    .selector strong { font-size:14px; }
+    .selector span { color:rgba(255,255,255,.65); font-size:12px; }
+    .status-pill { padding:10px 12px; border-radius:999px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.06); font-size:12px; font-weight:700; color:#dfe6ff; }
+    .feed { position:absolute; inset:0; display:grid; place-items:center; }
+    .feed .grid { width:100%; height:100%; background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); background-size: 44px 44px; opacity:.25; }
+    .figure { position:absolute; inset:0; display:grid; place-items:center; }
+    .figure svg { width: 320px; height: 420px; opacity:.9; filter: drop-shadow(0 0 12px rgba(123,97,255,.15)); }
+    .dot { fill: var(--success); filter: drop-shadow(0 0 6px rgba(31,209,164,.55)); }
+    .line { stroke: rgba(31,209,164,.5); stroke-width: 4; stroke-linecap: round; }
+    .rep { position:absolute; left:18px; bottom:20px; z-index:4; }
+    .rep .num { font-size:72px; line-height:.9; font-weight:900; letter-spacing:-.04em; text-shadow:0 4px 24px rgba(0,0,0,.55); }
+    .rep .label { font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.7); margin-top:4px; }
+    .right-stack { position:absolute; right:18px; top:64px; display:flex; flex-direction:column; gap:10px; z-index:4; }
+    .chip { padding:10px 12px; border-radius:16px; border:1px solid rgba(255,255,255,.08); background:rgba(0,0,0,.4); font-size:12px; font-weight:700; }
+    .chip.good { color:#6ff2c4; border-color:rgba(31,209,164,.18); background:rgba(31,209,164,.1); }
+    .chip.bad { color:#ff99a7; border-color:rgba(255,107,129,.18); background:rgba(255,107,129,.1); }
+    .chip.record { color:#ff97a4; border-color:rgba(255,107,129,.22); background:rgba(255,107,129,.12); }
+    .criteria { position:absolute; inset:auto 14px 12px; z-index:4; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .criterion { padding:10px 8px; border-radius:14px; background:rgba(8,13,24,.68); border:1px solid rgba(255,255,255,.06); text-align:center; font-size:11px; color:#c7d0ea; }
+    .criterion.good { color:#6ff2c4; border-color:rgba(31,209,164,.18); }
+    .criterion.bad { color:#ff99a7; border-color:rgba(255,107,129,.18); }
+    .criterion.neutral { color:#8b94b5; }
+    .dock { height:34%; padding:14px 16px 18px; background:linear-gradient(180deg,#0c1527 0,#09101e 100%); border-top:1px solid rgba(255,255,255,.05); display:flex; flex-direction:column; gap:12px; }
+    .info { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .info h2 { margin:0 0 2px; font-size:18px; }
+    .info p { margin:0; color:var(--muted); font-size:13px; line-height:1.4; }
+    .minirow { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .mini { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:10px 12px; }
+    .mini .value { font-size:20px; font-weight:800; }
+    .mini .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-top:3px; }
+    .dock-row { display:flex; justify-content:center; gap:10px; align-items:center; }
+    .dock button { width:54px; height:54px; border-radius:18px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.06); color:#dfe5ff; display:grid; place-items:center; }
+    .dock button.active { background:rgba(123,97,255,.18); color:#d9d2ff; border-color:rgba(123,97,255,.25); }
+    .dock button.record { background:rgba(255,107,129,.16); color:#ffd1d8; border-color:rgba(255,107,129,.22); }
+    .dock button.start { width:74px; height:74px; border-radius:24px; background:linear-gradient(135deg,var(--primary),#9b8cff); color:#fff; box-shadow:0 18px 32px rgba(123,97,255,.25); }
+    .overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.46); backdrop-filter: blur(4px); z-index:8; }
+    .overlay.visible { display:flex; }
+    .overlay-card { width:min(320px, calc(100% - 40px)); border-radius:24px; background:rgba(12,18,32,.92); border:1px solid rgba(255,255,255,.08); padding:22px; text-align:center; }
+    .overlay-card h3 { margin:10px 0 6px; font-size:22px; }
+    .overlay-card p { margin:0; color:var(--muted); font-size:14px; line-height:1.5; }
+    .overlay-card .actions { margin-top:16px; display:flex; gap:10px; }
+    .overlay-card .actions a, .overlay-card .actions button { flex:1; min-height:48px; border-radius:16px; display:flex; align-items:center; justify-content:center; text-decoration:none; font-weight:700; border:0; }
+    .overlay-card .actions .primary { background:linear-gradient(135deg,var(--primary),#9b8cff); color:#fff; }
+    .overlay-card .actions .ghost { background:rgba(255,255,255,.06); color:#fff; border:1px solid rgba(255,255,255,.08); }
+    .state-buttons { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; background:rgba(6,10,18,.9); border:1px solid rgba(255,255,255,.08); padding:8px; border-radius:999px; backdrop-filter:blur(16px); }
+    .state-buttons button { border:0; border-radius:999px; padding:8px 11px; background:rgba(255,255,255,.06); color:#d4dcf4; font-size:12px; font-weight:700; }
+    .state-buttons button.active { background:var(--primary); color:#fff; }
+    .spinner { width:48px; height:48px; border-radius:50%; border:4px solid rgba(255,255,255,.16); border-top-color:var(--primary); animation:spin 1s linear infinite; margin:0 auto 12px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .state-idle .overlay.idle, .state-loading .overlay.loading, .state-error .overlay.error, .state-summary .overlay.summary { display:flex; }
+    .state-summary .camera, .state-summary .dock { filter:saturate(.75) brightness(.72); }
+    .state-loading .criteria, .state-loading .dock-row, .state-loading .rep, .state-loading .right-stack { opacity:.35; }
+    @media (max-width:420px) { body { display:block; background:#07111f; } .phone { width:100%; height:100vh; border-radius:0; } .state-buttons { display:none; } }
+  </style>
+</head>
+<body class="state-idle">
+  <div class="phone">
+    <div class="content">
+      <section class="camera">
+        <div class="topbar">
+          <div class="selector"><ion-icon name="barbell"></ion-icon><div><strong>Squat</strong><div><span>Set 2 · 8 target reps</span></div></div></div>
+          <div class="status-pill">Ready to coach</div>
+        </div>
+
+        <div class="feed">
+          <div class="grid"></div>
+          <div class="figure">
+            <svg viewBox="0 0 320 420" fill="none" aria-hidden="true">
+              <line class="line" x1="160" y1="74" x2="160" y2="158" />
+              <line class="line" x1="160" y1="104" x2="118" y2="138" />
+              <line class="line" x1="160" y1="104" x2="202" y2="138" />
+              <line class="line" x1="160" y1="158" x2="130" y2="220" />
+              <line class="line" x1="160" y1="158" x2="190" y2="220" />
+              <line class="line" x1="130" y1="220" x2="120" y2="312" />
+              <line class="line" x1="190" y1="220" x2="200" y2="312" />
+              <circle class="dot" cx="160" cy="66" r="8" />
+              <circle class="dot" cx="160" cy="102" r="7" />
+              <circle class="dot" cx="128" cy="136" r="6" />
+              <circle class="dot" cx="192" cy="136" r="6" />
+              <circle class="dot" cx="160" cy="158" r="7" />
+              <circle class="dot" cx="130" cy="220" r="7" />
+              <circle class="dot" cx="190" cy="220" r="7" />
+              <circle class="dot" cx="120" cy="312" r="7" />
+              <circle class="dot" cx="200" cy="312" r="7" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="rep"><div class="num">12</div><div class="label">Reps</div></div>
+        <div class="right-stack">
+          <div class="chip good">Depth is good</div>
+          <div class="chip">Camera: front</div>
+          <div class="chip record" id="recordChip" style="display:none;">Recording 00:58</div>
+        </div>
+        <div class="criteria">
+          <div class="criterion good">Depth</div>
+          <div class="criterion good">Back</div>
+          <div class="criterion neutral">Knees</div>
+          <div class="criterion neutral">Tempo</div>
+        </div>
+
+        <div class="overlay idle visible"><div class="overlay-card"><ion-icon name="play-circle-outline" style="font-size:56px;color:#cfc6ff"></ion-icon><h3>Choose an exercise</h3><p>Start the camera when you are in position. Lift-Mate will count and coach the next rep.</p></div></div>
+        <div class="overlay loading"><div class="overlay-card"><div class="spinner"></div><h3>Initializing camera</h3><p>Loading the model and camera stream on device.</p></div></div>
+        <div class="overlay error"><div class="overlay-card"><ion-icon name="camera-off-outline" style="font-size:52px;color:#ff99a7"></ion-icon><h3>Camera blocked</h3><p>Allow camera access in system settings, then try again.</p><div class="actions"><a class="primary" href="#settings">Open settings</a><button class="ghost">Retry</button></div></div></div>
+        <div class="overlay summary"><div class="overlay-card" style="text-align:left; width:min(352px, calc(100% - 28px));"><div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;"><h3 style="margin:0;">Session summary</h3><ion-badge color="success">Saved locally</ion-badge></div><div class="minirow" style="margin-bottom:12px;"><div class="mini"><div class="value">24</div><div class="label">Reps</div></div><div class="mini"><div class="value">8:42</div><div class="label">Time</div></div><div class="mini"><div class="value">91</div><div class="label">Form</div></div></div><p style="margin:0 0 12px; color:var(--muted); line-height:1.5;">Depth stayed strong. Knees drifted on the last set. Save this clip and review it now.</p><div class="actions"><a class="primary" href="#review">Save &amp; Review</a><a class="ghost" href="#repeat">Repeat set</a></div></div></div>
+      </section>
+
+      <section class="dock">
+        <div class="info"><div><h2>Squat</h2><p>Keep the torso braced. Push through the floor.</p></div><ion-badge color="success">Good form</ion-badge></div>
+        <div class="minirow"><div class="mini"><div class="value">3/5</div><div class="label">Set</div></div><div class="mini"><div class="value">00:58</div><div class="label">Timer</div></div><div class="mini"><div class="value">2</div><div class="label">Flags</div></div></div>
+        <div class="dock-row">
+          <button class="active"><ion-icon name="body"></ion-icon></button>
+          <button class="active"><ion-icon name="hand-left-outline"></ion-icon></button>
+          <button class="active"><ion-icon name="happy-outline"></ion-icon></button>
+          <button><ion-icon name="camera-reverse-outline"></ion-icon></button>
+          <button class="record"><ion-icon name="radio-button-on-outline"></ion-icon></button>
+          <button class="start"><ion-icon name="play"></ion-icon></button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="state-buttons">
+    <button class="active" data-state="idle">Idle</button>
+    <button data-state="loading">Loading</button>
+    <button data-state="streaming">Streaming</button>
+    <button data-state="recording">Recording</button>
+    <button data-state="summary">Summary</button>
+    <button data-state="error">Error</button>
+  </div>
+
+  <script>
+    const body = document.body;
+    const visible = (state) => document.querySelector('.overlay.' + state);
+    document.querySelectorAll('[data-state]').forEach((btn) => btn.addEventListener('click', () => {
+      const state = btn.getAttribute('data-state');
+      body.className = 'state-' + state;
+      document.querySelectorAll('[data-state]').forEach((b) => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.overlay').forEach((ov) => ov.classList.remove('visible'));
+      if (visible(state)) visible(state).classList.add('visible');
+      if (state === 'streaming' || state === 'recording') document.querySelector('.overlay.idle').classList.remove('visible');
+      document.getElementById('recordChip').style.display = state === 'recording' ? 'flex' : 'none';
+    }));
+  </script>
+</body>
+</html>
