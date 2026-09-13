@@ -41,13 +41,11 @@ const sendFrames = async () => {
           handednesses: handResult.handednesses ?? handResult.handedness,
         }, Date.now());
         const faceFrame = normalizeTrackingResult(faceResult, Date.now());
-        // Tasks Vision labels assume a mirrored selfie image. The video element is
-        // intentionally unmirrored, so correct the labels before publishing them.
         tracking.frame({
           timestamp: Date.now(),
           poseLandmarks: poseFrame.poseLandmarks,
-          leftHandLandmarks: handFrame.rightHandLandmarks,
-          rightHandLandmarks: handFrame.leftHandLandmarks,
+          leftHandLandmarks: handFrame.leftHandLandmarks,
+          rightHandLandmarks: handFrame.rightHandLandmarks,
           faceLandmarks: faceFrame.faceLandmarks,
         });
       }
