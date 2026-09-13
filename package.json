@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:unit": "vitest",
-    "lint": "oxlint",
+    "lint": "oxlint --quiet",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
