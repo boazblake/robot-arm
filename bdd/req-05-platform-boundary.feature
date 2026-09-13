@@ -1,28 +1,36 @@
-Feature: Requirement 5 - Web and native platform boundary
-  Platform implementations are isolated from domain logic behind the TrackingFrame boundary.
+Feature: Requirement 5 - MediaPipe and platform boundary
+Platform-specific APIs are isolated from domain and platform-independent application logic.
 
-  Scenario: Web selects the web adapter
-    Given the application is running in the web platform
-    When tracking is initialized
-    Then the web MediaPipe implementation is selected
-    And the native MediaPipe implementation is not selected
+  Scenario: Web MediaPipe has a defined integration location
+    When the stabilized source tree is inspected
+    Then web MediaPipe initialization and raw-result conversion have one documented platform integration location
 
-  Scenario: Capacitor selects the native adapter
-    Given the application is running in Capacitor
-    When tracking is initialized
-    Then the native MediaPipe implementation is selected
-    And the web MediaPipe implementation is not selected as the native implementation
+  Scenario: Native MediaPipe has a defined integration location
+    When the stabilized source tree is inspected
+    Then Capacitor MediaPipe integration and native-result conversion have one documented platform integration location
 
-  Scenario: Domain behavior is platform independent
-    Given identical TrackingFrame values produced by web and native adapters
-    When domain logic consumes them
-    Then domain logic produces the same result
-    And it cannot determine which platform produced the frame from the domain contract
+  Scenario: Domain code has no MediaPipe dependency
+    When imports under the domain tracking and geometry locations are inspected
+    Then none imports @mediapipe packages
+    And none imports a MediaPipe result type from application platform code
 
-  Scenario: Domain modules contain no platform imports
-    Given every module under the domain boundary is inspected
-    Then no domain module imports a package matching @mediapipe/*
-    And no domain module imports a package matching @capacitor/*
-    And no domain module imports camera-preview
-    And no domain module imports browser APIs
-    And no domain module imports native plugin APIs
+  Scenario: Domain code has no Capacitor dependency
+    When imports under domain code are inspected
+    Then none imports @capacitor packages
+    And none imports camera-preview packages
+    And none imports the native MediaPipe plugin
+
+  Scenario: Platform-independent consumers cannot distinguish the producer
+    Given equivalent web and native detections are normalized
+    When a platform-independent consumer receives either value
+    Then both values satisfy the same TrackingFrame contract
+    And the consumer needs no platform discriminator to read tracking coordinates
+
+  Scenario: Platform selection remains outside domain logic
+    When the code deciding web versus native tracking is inspected
+    Then that decision is not made inside geometry functions
+    And that decision is not made inside tracking domain types
+
+  Scenario: Raw platform results do not escape by side channel
+    When application stores, service APIs, and event payloads are inspected
+    Then no long-lived platform-independent state exposes raw MediaPipe result objects as its public tracking contract

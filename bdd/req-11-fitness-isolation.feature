@@ -1,28 +1,35 @@
-Feature: Requirement 11 - Fitness isolation
-  Fitness functionality remains usable without becoming a platform or robot-control dependency.
-
-  Scenario: Existing fitness consumers continue to work
-    Given a fitness feature has a current consumer
-    When the stabilized application runs that consumer
-    Then the fitness feature remains available
-    And its existing supported behavior is preserved
-
-  Scenario: Exercise analysis consumes domain data
-    Given exercise analysis evaluates tracking or motion
-    Then its input is a domain tracking or motion contract
-    And it does not consume raw platform result objects
+Feature: Requirement 11 - Fitness behavior isolation
+Existing fitness behavior may remain, but it cannot own the core tracking architecture.
 
   Scenario: Exercise analysis does not initialize MediaPipe
-    Given exercise analysis is loaded or invoked
-    Then MediaPipe initialization is not performed by exercise analysis
-    And platform initialization remains in the platform integration boundary
+    When exercise-analysis modules are inspected
+    Then they do not create MediaPipe landmarker instances
+    And they do not own camera startup
 
-  Scenario: Future robot control is independent of fitness
-    Given future robot-control code is added after the documented boundary
-    Then it can consume the human-motion contract without importing exercise analysis
+  Scenario: Exercise analysis consumes platform-independent data
+    Given exercise analysis remains active
+    When it evaluates a tracked movement
+    Then its tracking input is a platform-independent domain value
+    Or an existing transitional dependency is explicitly listed as technical debt
 
-  Scenario: Abandoned fitness code is removed only after consumer verification
-    Given a fitness module is proposed for removal
-    When repository consumers are audited
-    Then it is removed only if no current consumer exists
-    And a module with a current consumer is retained
+  Scenario: Fitness logic does not define TrackingFrame
+    When tracking contracts are inspected
+    Then TrackingFrame is defined outside exercise-specific modules
+    And exercise names do not appear in the TrackingFrame contract
+
+  Scenario: Robotics can be added without exercise selection
+    Given a future robotics feature consumes tracking
+    Then the documented tracking boundary does not require a selected exercise
+    And the documented tracking boundary does not require rep counting
+    And the documented tracking boundary does not require coaching cues
+
+  Scenario: Dead fitness code is removed only after evidence
+    Given fitness-related code appears unused
+    When repository references and runtime routes are inspected
+    Then code with no current consumer is classified as removable
+    And working routed functionality is not deleted solely because it is fitness-related
+
+  Scenario: Remaining fitness debt is explicit
+    Given fitness code cannot safely be isolated within stabilization scope
+    Then the exact dependency is listed in the final technical-debt section
+    And the repository is not described as fully isolated when that dependency remains

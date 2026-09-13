@@ -39,7 +39,7 @@ const installErrorDiagnostics = () => {
   if (!isDev) return;
 
   window.addEventListener("error", (event) => {
-    console.error("[LiftMate][window.error]", {
+    console.error("[RobotArm][window.error]", {
       message: event.message,
       filename: event.filename,
       lineno: event.lineno,
@@ -50,7 +50,7 @@ const installErrorDiagnostics = () => {
 
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
-    console.error("[LiftMate][unhandledrejection]", {
+    console.error("[RobotArm][unhandledrejection]", {
       message: reason?.message ?? String(reason),
       stack: reason?.stack,
       reason,

@@ -1,22 +1,48 @@
-Feature: Requirement 14 - Dependency management
-  Dependencies are justified by current use and are not changed without a requirement.
+Feature: Requirement 14 - Dependency management and package stability
+Every dependency has a current reason to exist, and stabilization avoids unrelated upgrades.
 
-  Scenario: Every production dependency is justified
-    Given each dependency in the production dependency list is inspected
-    When its imports, runtime use, and documentation are audited
-    Then it has at least one current runtime consumer or an explicitly documented required purpose
-    And the audit records that consumer or purpose
+  Scenario: Production dependencies have runtime justification
+    Given each package under dependencies is inspected
+    When imports, runtime loading, build configuration, and native integration are traced
+    Then each package has a current runtime or required integration consumer
+    And the dependency audit records that consumer
 
-  Scenario: Verified unused dependencies are removed
-    Given a production dependency has no current runtime consumer and no required purpose
-    When the dependency is confirmed unused
-    Then it is removed from the production dependency list
-    And the lockfile is updated consistently
+  Scenario: Development dependencies have tooling justification
+    Given each package under devDependencies is inspected
+    When scripts and configuration are traced
+    Then each package has a current build, typecheck, lint, test, or development consumer
+    And the dependency audit records that consumer
+
+  Scenario: Confirmed unused dependency is removed
+    Given a package has no source, configuration, script, native, or documented tooling consumer
+    When stabilization is complete
+    Then the package is absent from package.json
+    And the authoritative lockfile no longer retains it as a direct dependency
+
+  Scenario: Dependency removal is validated
+    Given an unused dependency is removed
+    When required validation commands run
+    Then build passes
+    And typecheck passes
+    And tests pass
+    And lint passes
 
   Scenario: Working packages are not upgraded opportunistically
-    Given a package is working and no requirement requires a version change
-    Then its version is not upgraded merely because a newer version exists
+    Given the current package version satisfies project requirements
+    And no security or compatibility requirement requires change
+    When stabilization is performed
+    Then that package is not upgraded solely because a newer release exists
 
-  Scenario: Framework migrations are excluded
-    Then no framework migration is performed
-    And existing framework choices are retained unless a separate requirement explicitly authorizes replacement
+  Scenario: Required validation tooling may be added
+    Given no suitable test or lint tool exists for a required validation command
+    When a minimal tool is selected
+    Then only the required tooling and its necessary peer dependencies are added
+    And the reason is recorded in the dependency audit
+
+  Scenario: Framework migration is prohibited
+    When stabilization changes are inspected
+    Then Mithril is not replaced
+    And Ionic is not replaced
+    And Capacitor is not replaced
+    And MediaPipe is not replaced
+    Unless a separate approved requirement explicitly changes that framework

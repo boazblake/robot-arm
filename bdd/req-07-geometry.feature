@@ -1,40 +1,50 @@
 Feature: Requirement 7 - Pure geometry operations
-  Geometry is deterministic, pure, and independent of MediaPipe and application state.
+Generic geometry is independent of MediaPipe, UI, stores, fitness analysis, and robotics hardware.
 
-  Scenario: Joint angle uses valid points
-    Given three valid landmarks representing a joint and its two connected points
-    When the joint-angle operation is called
-    Then it returns the mathematically expected angle
-    And the accepted tolerance is defined in the test or API contract
-    And the returned angle uses the explicitly documented angle unit
+  Scenario: Angle calculation returns a known right angle
+    Given point A is at 1,0,0
+    And vertex B is at 0,0,0
+    And point C is at 0,1,0
+    When the angle ABC is calculated in degrees
+    Then the result is 90 within the documented floating-point tolerance
 
-  Scenario: Joint angle rejects incomplete input explicitly
-    Given one or more required angle points are missing
-    When the joint-angle operation is called
-    Then it returns the documented invalid result or rejects the call
-    And it does not return a plausible numeric angle
-    And it does not throw an incidental null or undefined property error
+  Scenario: Angle calculation returns a straight angle
+    Given point A is at -1,0,0
+    And vertex B is at 0,0,0
+    And point C is at 1,0,0
+    When the angle ABC is calculated in degrees
+    Then the result is 180 within the documented tolerance
 
-  Scenario: Joint angle rejects invalid numeric input explicitly
-    Given one or more angle coordinates are non-numeric, non-finite, or otherwise invalid
-    When the joint-angle operation is called
-    Then it returns the documented invalid result or rejects the call
-    And the invalid input is not silently converted into a valid angle
+  Scenario: Distance uses all three coordinates
+    Given point A is at 0,0,0
+    And point B is at 1,2,2
+    When Euclidean distance is calculated
+    Then the result is 3 within the documented tolerance
 
-  Scenario: Landmark distance is geometrically correct
-    Given two valid landmarks with known coordinates
-    When the distance operation is called
-    Then it returns the Euclidean distance for those coordinates
-    And the distance unit is the coordinate unit documented by the API
+  Scenario: Distance from a point to itself is zero
+    Given both distance operands have equal x, y, and z
+    When distance is calculated
+    Then the result is 0
 
-  Scenario: Identical landmarks have zero distance
-    Given two landmarks with equal x, y, and z coordinates
-    When the distance operation is called
-    Then it returns exactly zero
+  Scenario: Degenerate angle input has explicit behavior
+    Given vertex B equals point A or point C
+    When an angle is requested
+    Then the function returns the documented invalid result
+    And it does not silently return a plausible finite angle
+    And the behavior is tested
 
-  Scenario: Geometry has no side effects or platform dependency
-    Given a geometry operation is called with the same inputs twice
-    Then both results are equal
-    And the operation does not access a store
-    And the operation does not trigger a UI update
-    And the operation does not import or require MediaPipe
+  Scenario: Geometry is pure
+    Given the same geometry inputs are supplied repeatedly
+    When a geometry function runs
+    Then it returns the same result each time
+    And it does not mutate its inputs
+    And it does not read an application store
+    And it does not write an application store
+    And it does not trigger a UI redraw
+    And it does not access camera or MediaPipe state
+
+  Scenario: Geometry has no robotics dependency
+    When geometry imports are inspected
+    Then no robot package is imported
+    And no servo type is imported
+    And no SO-101 type is imported

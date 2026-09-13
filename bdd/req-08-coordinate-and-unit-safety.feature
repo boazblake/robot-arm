@@ -1,25 +1,40 @@
-Feature: Requirement 8 - Coordinate and unit safety
-  Coordinate systems and measurement units are explicit and cannot be confused.
+Feature: Requirement 8 - Coordinate systems and unit safety
+Coordinate spaces and angular units are explicit at every domain boundary.
 
-  Scenario: MediaPipe normalized-coordinate convention is documented
-    Given the tracking documentation is inspected
-    Then it states that MediaPipe x and y coordinates use normalized image coordinates
-    And it states how z is interpreted
-    And it states the valid or expected range for each normalized coordinate
-    And it identifies any conversion required before another coordinate system is used
+  Scenario: Tracking coordinate convention is documented
+    When the TrackingFrame contract documentation is inspected
+    Then it states the meaning of x
+    And it states the meaning of y
+    And it states the meaning of z
+    And it states whether image coordinates are normalized
+    And it states the front-camera mirror convention
+    And it states whether z uses MediaPipe-relative depth rather than metric distance
+
+  Scenario: Pixel coordinates are not silently stored as normalized landmarks
+    Given a value represents canvas pixels
+    When it enters geometry intended for normalized TrackingFrame landmarks
+    Then an explicit conversion is required
+    Or the type boundary prevents that use
 
   Scenario: Angle units are explicit
-    Given an API or type exposes an angle
-    Then its unit is explicitly named, typed, or documented
-    And a consumer can distinguish degrees from radians without guessing
+    Given a geometry function returns an angle
+    When another module consumes that result
+    Then the function name, return type, or documented contract identifies degrees or radians
+    And callers do not infer the unit from an undocumented number
 
-  Scenario: Normalized coordinates cannot silently become servo positions
-    Given a value crosses from normalized tracking coordinates toward motion or hardware code
-    Then an explicit conversion boundary is present
-    And the value is not passed as a servo position without conversion
-    And the conversion documents source units and destination units
+  Scenario: Conversion between degrees and radians is explicit
+    Given an angle crosses between degree-based and radian-based APIs
+    When conversion occurs
+    Then one named conversion operation performs it
+    And the conversion is covered by a deterministic test when introduced
 
-  Scenario: Distinct units are not ambiguous generic numbers
-    Given coordinates, angles, distances, ranges, or servo positions are represented
-    Then each distinct unit has a distinct name, type, or documented contract
-    And no consumer must infer the unit from an unqualified number
+  Scenario: Tracking coordinates cannot be treated as future servo values by convention
+    When TrackingFrame is inspected
+    Then its numeric fields do not claim servo units
+    And no stabilization code maps normalized landmark values directly to servo ticks
+    And no stabilization code maps landmark angles directly to robot joint commands
+
+  Scenario: Timestamp basis is explicit
+    When TrackingFrame.timestamp is inspected
+    Then documentation identifies its clock or epoch basis
+    And all platform normalizers produce the documented basis

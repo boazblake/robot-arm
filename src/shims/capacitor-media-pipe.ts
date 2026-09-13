@@ -9,7 +9,7 @@ export const CapacitorMediaPipe = {
     console.log("CapacitorMediaPipe (web shim): initialize", options);
   },
 
-  async send(data: { image: string }): Promise<void> {
+  async send(_data: { image: string }): Promise<void> {
     // No-op for the web. Frame processing is handled by the JS library.
   },
 
@@ -18,10 +18,11 @@ export const CapacitorMediaPipe = {
     console.log("CapacitorMediaPipe (web shim): close");
   },
 
-  addListener(eventName: string, listenerFunc: (data: any) => void): any {
+  addListener(eventName: string, listenerFunc: (data: unknown) => void): { remove: () => void } {
     // The web version doesn't emit events this way. Return a dummy
     // subscription object to prevent errors.
     console.log(`CapacitorMediaPipe (web shim): addListener for ${eventName}`);
+    void listenerFunc;
     return {
       remove: () => {
         console.log(`CapacitorMediaPipe (web shim): removeListener for ${eventName}`);

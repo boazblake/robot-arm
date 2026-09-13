@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    base: isMobile ? "/" : "/lift-mate/",
+    base: isMobile ? "/" : "/robot-arm/", 
     plugins: [
       nodePolyfills({
         include: ["process"], // Polyfill process.env
@@ -67,9 +67,9 @@ export default defineConfig(({ mode }) => {
           ],
         },
         manifest: {
-          name: "Lift Mate",
-          short_name: "LiftMate",
-          description: "Your personal fitness tracking app",
+          name: "Robot Arm",
+          short_name: "Robot Arm",
+          description: "Human-motion tracking foundation for robotics work",
           theme_color: "#ffffff",
           icons: [
             {

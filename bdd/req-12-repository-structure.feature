@@ -1,31 +1,48 @@
-Feature: Requirement 12 - Repository structure
-  Each responsibility has a predictable location and every directory has a current purpose.
+Feature: Requirement 12 - Repository structure and source ownership
+The source tree makes active responsibilities discoverable and removes duplicate ownership.
 
-  Scenario: Application startup and routing are located correctly
-    Then startup code is under src/app/
-    And routing code is under src/app/
+  Scenario: Application bootstrap has one active entry path
+    When production startup is traced from index.html into application source
+    Then one documented bootstrap path is active
+    And obsolete alternative bootstrap implementations are removed or documented as required
 
-  Scenario: Tracking UI is located in one documented feature location
-    Then every tracking UI file is inside one feature directory
-    And that directory has a descriptive name containing tracking
-    And the directory is identified in ARCHITECTURE.md
+  Scenario: Platform integration has one location per platform
+    When MediaPipe integration is located
+    Then web integration has one documented source location
+    And native TypeScript integration has one documented source location
+    And native iOS and Android implementation locations are documented when retained
 
-  Scenario: Platform integrations use the required directory layout
-    Then the platform integration root is src/platform/mediapipe/
-    And the web implementation is inside src/platform/mediapipe/web/
-    And the native implementation is inside src/platform/mediapipe/native/
-    And no platform implementation is stored under src/domain/
+  Scenario: Tracking domain types have one authoritative location
+    When Landmark and TrackingFrame definitions are searched
+    Then one production definition of each is authoritative
+    And duplicate incompatible definitions do not remain
 
-  Scenario: Domain and shared code are separated
-    Then geometry and tracking contracts are under src/domain/tracking/
-    And human motion types are under src/domain/motion/
-    And state is under src/stores/
-    And if state is not under src/stores/, exactly one alternative owner is named in ARCHITECTURE.md
-    And shared UI and utilities are under src/shared/
-    And UI code is not stored in domain modules
+  Scenario: Generic geometry has one authoritative location
+    When generic angle and distance helpers are searched
+    Then reusable tracking geometry has one documented domain location
+    And duplicate helpers are removed or justified when their semantics differ
 
-  Scenario: Directories and legacy code are purposeful
-    Given every repository directory is listed
-    Then each directory has a current documented purpose
-    And unused legacy code is removed
-    And removal preserves Git history by normal version-control deletion rather than destructive history rewriting
+  Scenario: Feature UI remains outside domain modules
+    When domain modules are inspected
+    Then they do not import Mithril view components
+    And they do not import Ionic UI components
+    And they do not import feature CSS
+
+  Scenario: Legacy source is not retained without a consumer
+    Given a legacy file has no import, route, build, script, native-project, or documented tooling consumer
+    When stabilization is complete
+    Then the file is removed
+    Or the final report identifies why it remains
+
+  Scenario: Duplicate data assets are resolved
+    Given byte-identical or semantically duplicate large data assets exist in multiple source paths
+    When their consumers are traced
+    Then one authoritative required copy remains where practical
+    And consumers reference that copy
+    Or the final report explains why multiple copies are required
+
+  Scenario: Architecture documentation matches the actual tree
+    When ARCHITECTURE.md is compared with production source
+    Then every documented top-level source responsibility exists
+    And removed paths are not described as current
+    And active major paths are not omitted

@@ -1,29 +1,25 @@
-# Lift-Mate
+# Robot Arm
 
-Camera-first lifting coach built with Ionic + Mithril + Capacitor.
+A TypeScript human-motion tracking foundation for future robotics work. This repository intentionally does not implement robot control.
 
-## Run
+## Capabilities
 
-- Web (SSL): `npm run goweb`
-- iOS: `npm run goios`
-- Web build: `npm run buildweb`
+- Web camera input, with existing Capacitor camera integration retained
+- MediaPipe pose and two-hand tracking
+- Optional face tracking
+- Normalized `Landmark` and `TrackingFrame` application types
+- Development landmark rendering
+- Deterministic geometry and normalization tests
 
-## Clean Repo Structure
+## Development
 
-- `src/app/` bootstrap and route wiring
-- `src/features/` screen features (home, pose, playback, progress)
-- `src/shared/components/` shared UI and shell
-- `src/shared/utils/` shared utilities
-- `src/stores/` app state persistence and streams
-- `src/services/` orchestration services
-- `src/domain/` normalized business/data models
-  - `src/domain/exrx-data/exercises.json` ExRx dataset
-  - `src/domain/exrx.ts` dataset access + cue/profile helpers
-  - `src/domain/trackableExercises.ts` trackable exercise aliases
-- `design/` current approved mockups and specs only
-- `project-docs/` active engineering docs only
+```sh
+npm ci
+npm run dev
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
 
-## Notes
-
-- Exercise selection and start now happen from the sidebar library.
-- Home is session-centric (recent sessions + restart), not exercise catalog.
+Camera and MediaPipe model loading require a supported browser/device and network access to the model assets. Native builds that cannot be run in the current environment must be reported as not verified.

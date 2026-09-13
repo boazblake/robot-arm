@@ -1,29 +1,53 @@
-Feature: Requirement 19 - Refactoring rules
-  Changes remain minimal, typed, composable, and within domain boundaries.
+Feature: Requirement 19 - Refactoring constraints and code quality rules
+Refactoring reduces accidental complexity while preserving required behavior.
 
-  Scenario: Use the simplest functional implementation
-    Given new or refactored logic is introduced
-    Then the logic is implemented as a pure function unless a documented side effect is required
-    And composition is used unless a documented concrete reason prevents it
-    And inputs are not mutated unless a documented concrete reason requires mutation
-    And a class is introduced only when a named concrete requirement demonstrates the need
-    And no abstraction is added solely for a hypothetical future use
-    And no dependency is added when the required behavior is available from TypeScript or browser APIs
+  Scenario: Pure transformations remain pure
+    Given a function only transforms tracking or geometry values
+    When it is refactored
+    Then it receives required data through parameters
+    And it returns its result directly
+    And it does not read global stores
+    And it does not write global stores
+    And it does not trigger UI redraws
 
-  Scenario: Keep new domain code strictly typed
-    Given new domain code is reviewed
-    Then it contains no any type
-    And it contains no as any expression
-    And it contains no @ts-ignore or equivalent suppression
-    And it does not exclude problematic code from validation
+  Scenario: New domain code prefers functions over classes
+    When new tracking or geometry domain code is inspected
+    Then classes exist only when a library contract or demonstrated stateful requirement needs them
+    And stateless transformations use functions
 
-  Scenario: Remove dead code and preserve behavior intentionally
-    Given existing code is considered for change or removal
-    Then dead code is not retained for possible future use
-    And working behavior is changed only with a stated reason
-    And every module has one focused responsibility
+  Scenario: New transformations do not mutate inputs
+    Given a normalization or geometry function receives an input object or collection
+    When the function completes
+    Then it does not require mutation of the caller-owned input
 
-  Scenario: Enforce architectural boundaries
-    Then platform code remains outside domain code
-    And UI code remains outside domain logic
-    And hardware concepts remain outside human-motion models
+  Scenario: New abstractions require a current consumer
+    Given a new interface, adapter, manager, controller, provider, factory, or repository abstraction is introduced
+    When its use is inspected
+    Then a current stabilization requirement or current runtime consumer requires it
+    And it is not added solely for hypothetical future robotics work
+
+  Scenario: New dependencies require justification
+    Given stabilization adds a dependency
+    When the dependency audit is inspected
+    Then the dependency maps to a current requirement
+    And native TypeScript or existing project capability was considered first
+
+  Scenario: New domain code does not use any
+    When changed domain tracking and geometry code is inspected
+    Then explicit any is absent
+    And TypeScript errors are not hidden by unsafe casts solely to pass validation
+
+  Scenario: Comments explain durable reasons rather than temporary instructions
+    When new code comments are inspected
+    Then comments explain non-obvious constraints, external behavior, or durable design reasons
+    And temporary agent instructions are not committed as source comments
+
+  Scenario: Working behavior is not rewritten only for style
+    Given code already satisfies a requirement and does not block the target boundary
+    When stabilization is performed
+    Then it is not rewritten solely to match personal formatting or architectural preference
+
+  Scenario: Refactoring is validated after meaningful changes
+    Given a refactor changes a tracking boundary, build configuration, or dependency
+    When that change is considered complete
+    Then relevant automated checks are run before the final completion claim

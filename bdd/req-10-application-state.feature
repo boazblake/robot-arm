@@ -1,38 +1,42 @@
-Feature: Requirement 10 - Application state ownership and frame lifecycle
-  Tracking state has one owner and a documented, efficient lifecycle.
+Feature: Requirement 10 - Tracking runtime state ownership
+Runtime state has explicit ownership and high-frequency tracking does not become accidental global UI state.
 
-  Scenario: Tracking state has one clear owner
-    Given all tracking state declarations are inspected
-    Then ownership is assigned to one documented state owner
-    And there is no competing global tracking-state owner
-    And no second global state-management system is introduced
+  Scenario: Tracking lifecycle has one authoritative state owner
+    When tracking lifecycle state is inspected
+    Then one documented module owns whether tracking is idle, starting, ready, streaming, switching, stopped, or failed
+    And competing lifecycle state variables are removed or justified
 
-  Scenario: A frame follows one documented data path
-    Given tracking is active and a new frame arrives
-    When the frame is accepted
-    Then it follows the documented path from platform adapter to TrackingFrame consumer
-    And each handoff is identifiable in the architecture documentation
-    And the frame is not routed through an undocumented duplicate path
+  Scenario: A frame follows one documented path
+    Given tracking is streaming
+    When a TrackingFrame is produced
+    Then it enters application processing through one documented frame-delivery boundary
+    And duplicate independent frame pipelines are not created during stabilization
 
-  Scenario: Unchanged visible state does not cause a full redraw
-    Given a frame arrives without changing visible UI state
-    When the frame is processed
-    Then frame processing completes without requiring a full application redraw
-    And any redraw that does occur is limited to a documented visible-state change
+  Scenario: High-frequency frames do not require full application redraws
+    Given a TrackingFrame arrives
+    And no user-visible state that requires redraw changed
+    When frame processing completes
+    Then the architecture does not require a full Mithril application redraw solely because the frame arrived
 
-  Scenario: Stopping tracking stops processing
-    Given tracking is active
+  Scenario: UI state remains separate from frame data
+    When stores are inspected
+    Then durable session or navigation state is not used as the raw high-frequency frame transport without documented need
+
+  Scenario: Tracking stop terminates frame scheduling
+    Given tracking is streaming
     When tracking is stopped
-    Then no subsequently received frame is processed by the stopped tracking session
-    And the processing loop or subscription is stopped
+    Then no new tracking frame is scheduled by the stopped loop
+    And active camera resources are released according to the platform implementation
+    And a later restart does not create two concurrent frame loops
 
-  Scenario: Camera resources are released
-    Given tracking used camera resources
-    When tracking is stopped or the owner is disposed
-    Then applicable camera resources are released
-    And no camera stream remains active for the stopped session
+  Scenario: Camera switching does not duplicate processing loops
+    Given tracking is streaming
+    When the active camera is switched
+    Then the old capture path is stopped or replaced
+    And only one active processing loop remains after the switch completes
 
-  Scenario: Unused global streams are removed
-    Given global stream declarations are inspected
-    Then every retained global stream has a current consumer and documented purpose
-    And unused global streams are absent
+  Scenario: Unused global state is removed
+    Given a global stream or store has no runtime reader and no required side effect
+    When stabilization is complete
+    Then that state is removed
+    Or its required purpose is documented in the audit

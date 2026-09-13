@@ -1,5 +1,5 @@
 {
-  description = "LiftMate iOS Dev Shell (Ionic + Capacitor)";
+  description = "Robot Arm iOS Dev Shell (Ionic + Capacitor)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
@@ -76,7 +76,7 @@
                 "name": "Boaz Blake",
                 "email": "boazblake@gmail.com"
               },
-              "default_project": "liftmate-dev",
+              "default_project": "robot-arm-dev",
               "location": "Houston, TX"
             }
             EOL
@@ -91,8 +91,8 @@
             fi
 
             echo "Dev shell ready. Common commands:"
-            echo "  node --run startweb      # Run web dev build"
-            echo "  node --run startios      # Build and run iOS"
+            echo "  node --run dev      # Run web dev build"
+            echo "  node --run sync:ios      # Build and run iOS"
             echo "  gemini                   # Run Gemini CLI"
             echo "  gemini auth login        # Authenticate with Gemini"
             echo "  gemini config show       # Show current configuration"

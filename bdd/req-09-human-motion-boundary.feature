@@ -1,27 +1,32 @@
-Feature: Requirement 9 - HumanArmPose boundary
-  Human motion is modeled independently from robot hardware.
+Feature: Requirement 9 - Future human-motion boundary
+Stabilization prepares input for future human-motion modeling without implementing that model.
 
-  Scenario: HumanArmPose exposes the required motion fields
-    Given the HumanArmPose contract is inspected
-    Then it contains shoulderYaw
-    And it contains shoulderPitch
-    And it contains elbowFlexion
-    And it contains wristPitch
-    And it contains wristRoll
-    And it contains grip
-    And the unit for each of the six fields is documented
-    And the allowed range for each bounded field is documented
-    And each field without a bounded range is explicitly documented as unbounded or not applicable
+  Scenario: TrackingFrame is the end of stabilization
+    When the stabilization architecture is inspected
+    Then TrackingFrame is the last required motion-data artifact
+    And no HumanArmPose value is required for current application startup
+    And no HumanArmPose value is required for current tracking
 
-  Scenario: HumanArmPose is robot independent
-    Given HumanArmPose is imported by domain code
-    Then it does not import SO-101 types
-    And it does not import servo types
-    And it does not import robot drivers or hardware APIs
-    And its fields describe human motion rather than a specific robot
+  Scenario: HumanArmPose is not implemented as speculative production code
+    When stabilization changes are inspected
+    Then no production module is added only to define HumanArmPose
+    And no placeholder shoulder, elbow, wrist, or grip mapping is added to satisfy stabilization
 
-  Scenario: Conversion has a defined future location but is not implemented
-    Given the architecture is inspected
-    Then it identifies the future module or boundary for TrackingFrame to HumanArmPose conversion
-    And no TrackingFrame to HumanArmPose conversion is implemented as part of stabilization
-    And no RobotMapper is implemented as part of stabilization
+  Scenario: Future HumanArmPose can consume TrackingFrame without MediaPipe
+    Given a later requirement implements HumanArmPose
+    When that future module consumes tracking data
+    Then TrackingFrame contains the platform-independent landmark data intended as its input
+    And the future module need not consume a raw MediaPipe result
+
+  Scenario: Human motion remains independent from robot hardware
+    Given the future architecture is documented
+    Then HumanArmPose represents human motion
+    And RobotTarget represents robot-specific targets
+    And RobotMapper is the future boundary between those concepts
+
+  Scenario: Stabilization does not claim future kinematic correctness
+    When the final report describes robotics readiness
+    Then it does not claim shoulder yaw mapping is implemented
+    And it does not claim shoulder pitch mapping is implemented
+    And it does not claim wrist orientation mapping is implemented
+    And it does not claim grip mapping is implemented
