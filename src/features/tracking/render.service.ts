@@ -16,7 +16,6 @@ type DrawPose = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], map
 const drawPoints: DrawPoints = (ctx, points, color, radius, map) => {
   ctx.fillStyle = color;
   points.forEach((point) => {
-    if (point.visibility !== undefined && point.visibility < 0.3) return;
     const target = map(point);
     ctx.beginPath();
     ctx.arc(target.x, target.y, radius, 0, Math.PI * 2);

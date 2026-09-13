@@ -36,7 +36,10 @@ const sendFrames = async () => {
         const handResult = detect(hands, "hand");
         const faceResult = detect(face, "face");
         const poseFrame = normalizeTrackingResult({ poseLandmarks: Array.isArray(poseResult.landmarks) ? poseResult.landmarks[0] : [] }, Date.now());
-        const handFrame = normalizeTrackingResult({ handLandmarks: handResult.landmarks, handednesses: handResult.handednesses }, Date.now());
+        const handFrame = normalizeTrackingResult({
+          handLandmarks: handResult.landmarks ?? handResult.handLandmarks,
+          handednesses: handResult.handednesses ?? handResult.handedness,
+        }, Date.now());
         const faceFrame = normalizeTrackingResult(faceResult, Date.now());
         // Tasks Vision labels assume a mirrored selfie image. The video element is
         // intentionally unmirrored, so correct the labels before publishing them.

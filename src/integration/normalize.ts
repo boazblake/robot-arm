@@ -48,9 +48,11 @@ export const normalizeTrackingResult: NormalizeTrackingResult = (input, timestam
   let rightHandLandmarks = findLandmarks(root, ["rightHandLandmarks", "right_hand_landmarks"]);
 
   handedness.forEach((entry, index) => {
-    const category = Array.isArray(entry) ? entry[0] : entry;
+    const entryRecord = isRecord(entry) ? entry : {};
+    const categories = Array.isArray(entryRecord.categories) ? entryRecord.categories : [];
+    const category = Array.isArray(entry) ? entry[0] : categories[0] ?? entry;
     const categoryRecord = isRecord(category) ? category : {};
-    const label = String(categoryRecord.categoryName ?? categoryRecord.label ?? "").toLowerCase();
+    const label = String(categoryRecord.categoryName ?? categoryRecord.displayName ?? categoryRecord.label ?? "").toLowerCase();
     const points = readLandmarks(hands[index]);
     if (label.includes("left")) leftHandLandmarks = points;
     if (label.includes("right")) rightHandLandmarks = points;
