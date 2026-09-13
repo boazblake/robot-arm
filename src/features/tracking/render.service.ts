@@ -1,18 +1,22 @@
 import { elements, features, tracking } from "./store";
 import type { Landmark, TrackingFrame } from "../../domain/tracking";
 
-const connections: readonly [number, number][] = [
+const poseConnections: readonly [number, number][] = [
   [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8],
   [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24],
   [23, 24], [23, 25], [24, 26], [25, 27], [26, 28],
+];
+const handConnections: readonly [number, number][] = [
+  [0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8],
+  [0, 9], [9, 10], [10, 11], [11, 12], [0, 13], [13, 14], [14, 15], [15, 16],
+  [0, 17], [17, 18], [18, 19], [19, 20],
 ];
 
 type RenderFlags = { readonly pose: boolean; readonly hands: boolean; readonly face: boolean };
 type CanvasPoint = { readonly x: number; readonly y: number };
 type PointMapper = (point: Landmark) => CanvasPoint;
 type DrawPoints = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], color: string, radius: number, map: PointMapper) => void;
-type DrawPose = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], map: PointMapper) => void;
-
+type DrawSkeleton = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], color: string, radius: number, map: PointMapper, links: readonly [number, number][]) => void;
 const drawPoints: DrawPoints = (ctx, points, color, radius, map) => {
   ctx.fillStyle = color;
   points.forEach((point) => {
@@ -23,12 +27,12 @@ const drawPoints: DrawPoints = (ctx, points, color, radius, map) => {
   });
 };
 
-const drawPose: DrawPose = (ctx, points, map) => {
-  drawPoints(ctx, points, "#ef4444", 4, map);
+const drawSkeleton: DrawSkeleton = (ctx, points, color, radius, map, links) => {
+  drawPoints(ctx, points, color, radius, map);
   const mapped = points.map(map);
-  ctx.strokeStyle = "#ef4444";
+  ctx.strokeStyle = color;
   ctx.lineWidth = 1;
-  connections.forEach(([start, end]) => {
+  links.forEach(([start, end]) => {
     if (!mapped[start] || !mapped[end]) return;
     ctx.beginPath();
     ctx.moveTo(mapped[start].x, mapped[start].y);
@@ -37,6 +41,9 @@ const drawPose: DrawPose = (ctx, points, map) => {
   });
 };
 
+type DrawPose = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], map: PointMapper) => void;
+const drawPose: DrawPose = (ctx, points, map) => drawSkeleton(ctx, points, "#ef4444", 4, map, poseConnections);
+
 type DrawTrackingFrame = (ctx: CanvasRenderingContext2D, frame: TrackingFrame, flags?: RenderFlags, map?: PointMapper) => void;
 type DefaultMapper = (ctx: CanvasRenderingContext2D) => PointMapper;
 const defaultMapper: DefaultMapper = (ctx) => (point) => ({ x: point.x * ctx.canvas.width, y: point.y * ctx.canvas.height });
@@ -44,8 +51,8 @@ const defaultMapper: DefaultMapper = (ctx) => (point) => ({ x: point.x * ctx.can
 export const drawTrackingFrame: DrawTrackingFrame = (ctx, frame, flags = { pose: true, hands: true, face: true }, map = defaultMapper(ctx)) => {
   if (flags.pose) drawPose(ctx, frame.poseLandmarks, map);
   if (flags.hands) {
-    drawPoints(ctx, frame.leftHandLandmarks, "#22c55e", 4, map);
-    drawPoints(ctx, frame.rightHandLandmarks, "#22c55e", 4, map);
+    drawSkeleton(ctx, frame.leftHandLandmarks, "#22c55e", 4, map, handConnections);
+    drawSkeleton(ctx, frame.rightHandLandmarks, "#22c55e", 4, map, handConnections);
   }
   if (flags.face) drawPoints(ctx, frame.faceLandmarks, "#f8fafc", 2, map);
 };
