@@ -10,20 +10,25 @@ const connections: readonly [number, number][] = [
 type RenderFlags = { readonly pose: boolean; readonly hands: boolean; readonly face: boolean };
 type CanvasPoint = { readonly x: number; readonly y: number };
 type PointMapper = (point: Landmark) => CanvasPoint;
-type DrawLandmarks = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], color: string, radius: number, map: PointMapper, connect?: boolean) => void;
-const draw: DrawLandmarks = (ctx, points, color, radius, map, connect = true) => {
-  const mapped = points.map(map);
+type DrawPoints = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], color: string, radius: number, map: PointMapper) => void;
+type DrawPose = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], map: PointMapper) => void;
+
+const drawPoints: DrawPoints = (ctx, points, color, radius, map) => {
   ctx.fillStyle = color;
-  ctx.strokeStyle = connect ? color : "transparent";
-  ctx.lineWidth = connect ? 1 : 0;
-  points.forEach((point, index) => {
+  points.forEach((point) => {
     if (point.visibility !== undefined && point.visibility < 0.3) return;
-    const target = mapped[index];
+    const target = map(point);
     ctx.beginPath();
     ctx.arc(target.x, target.y, radius, 0, Math.PI * 2);
     ctx.fill();
   });
-  if (!connect) return;
+};
+
+const drawPose: DrawPose = (ctx, points, map) => {
+  drawPoints(ctx, points, "#ef4444", 4, map);
+  const mapped = points.map(map);
+  ctx.strokeStyle = "#ef4444";
+  ctx.lineWidth = 1;
   connections.forEach(([start, end]) => {
     if (!mapped[start] || !mapped[end]) return;
     ctx.beginPath();
@@ -33,17 +38,17 @@ const draw: DrawLandmarks = (ctx, points, color, radius, map, connect = true) =>
   });
 };
 
-const defaultMapper = (ctx: CanvasRenderingContext2D): PointMapper =>
-  (point) => ({ x: point.x * ctx.canvas.width, y: point.y * ctx.canvas.height });
-
 type DrawTrackingFrame = (ctx: CanvasRenderingContext2D, frame: TrackingFrame, flags?: RenderFlags, map?: PointMapper) => void;
+type DefaultMapper = (ctx: CanvasRenderingContext2D) => PointMapper;
+const defaultMapper: DefaultMapper = (ctx) => (point) => ({ x: point.x * ctx.canvas.width, y: point.y * ctx.canvas.height });
+
 export const drawTrackingFrame: DrawTrackingFrame = (ctx, frame, flags = { pose: true, hands: true, face: true }, map = defaultMapper(ctx)) => {
-  if (flags.pose) draw(ctx, frame.poseLandmarks, "#ef4444", 4, map);
+  if (flags.pose) drawPose(ctx, frame.poseLandmarks, map);
   if (flags.hands) {
-    draw(ctx, frame.leftHandLandmarks, "#22c55e", 4, map, false);
-    draw(ctx, frame.rightHandLandmarks, "#22c55e", 4, map, false);
+    drawPoints(ctx, frame.leftHandLandmarks, "#22c55e", 4, map);
+    drawPoints(ctx, frame.rightHandLandmarks, "#22c55e", 4, map);
   }
-  if (flags.face) draw(ctx, frame.faceLandmarks, "#f8fafc", 2, map, false);
+  if (flags.face) drawPoints(ctx, frame.faceLandmarks, "#f8fafc", 2, map);
 };
 
 type CoverMapper = (canvas: HTMLCanvasElement, video: HTMLVideoElement | null) => PointMapper;

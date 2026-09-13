@@ -35,11 +35,18 @@ const sendFrames = async () => {
         const poseResult = detect(pose, "pose");
         const handResult = detect(hands, "hand");
         const faceResult = detect(face, "face");
-        const p = Array.isArray(poseResult.landmarks) ? poseResult.landmarks[0] : [];
-        const f = Array.isArray(faceResult.faceLandmarks) ? faceResult.faceLandmarks[0] : [];
-        const h = Array.isArray(handResult.landmarks) ? handResult.landmarks : [];
-        const handednesses = Array.isArray(handResult.handednesses) ? handResult.handednesses : [];
-        tracking.frame(normalizeTrackingResult({ poseLandmarks: p, faceLandmarks: f, handLandmarks: h, handednesses }, Date.now()));
+        const poseFrame = normalizeTrackingResult({ poseLandmarks: Array.isArray(poseResult.landmarks) ? poseResult.landmarks[0] : [] }, Date.now());
+        const handFrame = normalizeTrackingResult({ handLandmarks: handResult.landmarks, handednesses: handResult.handednesses }, Date.now());
+        const faceFrame = normalizeTrackingResult(faceResult, Date.now());
+        // Tasks Vision labels assume a mirrored selfie image. The video element is
+        // intentionally unmirrored, so correct the labels before publishing them.
+        tracking.frame({
+          timestamp: Date.now(),
+          poseLandmarks: poseFrame.poseLandmarks,
+          leftHandLandmarks: handFrame.rightHandLandmarks,
+          rightHandLandmarks: handFrame.leftHandLandmarks,
+          faceLandmarks: faceFrame.faceLandmarks,
+        });
       }
     } else {
       const sample = await CameraPreview.captureSample({ quality: 35 });
