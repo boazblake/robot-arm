@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:unit": "vitest",
-    "lint": "eslint .",
+    "lint": "oxlint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -36,6 +36,7 @@
     "@vitejs/plugin-legacy": "^6.1.1",
     "cross-env": "^7.0.3",
     "eslint": "^10.10.0",
+    "oxlint": "^1.82.0",
     "typescript": "^7.0.2",
     "vite": "^6.3.5",
     "vite-plugin-mkcert": "^1.17.6",

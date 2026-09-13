@@ -1,15 +1,91 @@
 import { elements, features, tracking } from "./store";
-import type { Landmark } from "../../domain/tracking";
+import type { Landmark, TrackingFrame } from "../../domain/tracking";
 
-const connections: number[][] = [[0,1],[1,2],[2,3],[3,7],[0,4],[4,5],[5,6],[6,8],[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28]];
+const connections: readonly [number, number][] = [
+  [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8],
+  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24],
+  [23, 24], [23, 25], [24, 26], [25, 27], [26, 28],
+];
+
+type RenderFlags = { readonly pose: boolean; readonly hands: boolean; readonly face: boolean };
+type CanvasPoint = { readonly x: number; readonly y: number };
+type PointMapper = (point: Landmark) => CanvasPoint;
+type DrawLandmarks = (ctx: CanvasRenderingContext2D, points: readonly Landmark[], color: string, radius: number, map: PointMapper, connect?: boolean) => void;
+const draw: DrawLandmarks = (ctx, points, color, radius, map, connect = true) => {
+  const mapped = points.map(map);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = connect ? color : "transparent";
+  ctx.lineWidth = connect ? 1 : 0;
+  points.forEach((point, index) => {
+    if (point.visibility !== undefined && point.visibility < 0.3) return;
+    const target = mapped[index];
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  if (!connect) return;
+  connections.forEach(([start, end]) => {
+    if (!mapped[start] || !mapped[end]) return;
+    ctx.beginPath();
+    ctx.moveTo(mapped[start].x, mapped[start].y);
+    ctx.lineTo(mapped[end].x, mapped[end].y);
+    ctx.stroke();
+  });
+};
+
+const defaultMapper = (ctx: CanvasRenderingContext2D): PointMapper =>
+  (point) => ({ x: point.x * ctx.canvas.width, y: point.y * ctx.canvas.height });
+
+type DrawTrackingFrame = (ctx: CanvasRenderingContext2D, frame: TrackingFrame, flags?: RenderFlags, map?: PointMapper) => void;
+export const drawTrackingFrame: DrawTrackingFrame = (ctx, frame, flags = { pose: true, hands: true, face: true }, map = defaultMapper(ctx)) => {
+  if (flags.pose) draw(ctx, frame.poseLandmarks, "#ef4444", 4, map);
+  if (flags.hands) {
+    draw(ctx, frame.leftHandLandmarks, "#22c55e", 4, map, false);
+    draw(ctx, frame.rightHandLandmarks, "#22c55e", 4, map, false);
+  }
+  if (flags.face) draw(ctx, frame.faceLandmarks, "#f8fafc", 2, map, false);
+};
+
+type CoverMapper = (canvas: HTMLCanvasElement, video: HTMLVideoElement | null) => PointMapper;
+const coverMapper: CoverMapper = (canvas, video) => {
+  const videoWidth = video?.videoWidth || canvas.width;
+  const videoHeight = video?.videoHeight || canvas.height;
+  const videoAspect = videoWidth / videoHeight;
+  const canvasAspect = canvas.width / canvas.height;
+  const renderedWidth = videoAspect > canvasAspect ? canvas.height * videoAspect : canvas.width;
+  const renderedHeight = videoAspect > canvasAspect ? canvas.height : canvas.width / videoAspect;
+  const offsetX = (canvas.width - renderedWidth) / 2;
+  const offsetY = (canvas.height - renderedHeight) / 2;
+  return (point) => ({ x: offsetX + point.x * renderedWidth, y: offsetY + point.y * renderedHeight });
+};
+
 let active = false;
-let frame: number | null = null;
-const draw = (ctx: CanvasRenderingContext2D, points: Landmark[], color: string, radius: number) => {
-  ctx.fillStyle = color; ctx.strokeStyle = color;
-  points.forEach((point) => { if (point.visibility !== undefined && point.visibility < .3) return; ctx.beginPath(); ctx.arc(point.x * ctx.canvas.width, point.y * ctx.canvas.height, radius, 0, Math.PI * 2); ctx.fill(); });
-  connections.forEach(([a, b]) => { if (!points[a] || !points[b]) return; ctx.beginPath(); ctx.moveTo(points[a].x * ctx.canvas.width, points[a].y * ctx.canvas.height); ctx.lineTo(points[b].x * ctx.canvas.width, points[b].y * ctx.canvas.height); ctx.stroke(); });
+let animationFrame: number | null = null;
+type StartRenderLoop = () => void;
+const startRenderLoop: StartRenderLoop = () => {
+  if (active) return;
+  active = true;
+  const loop = () => {
+    if (!active) return;
+    const canvas = elements.canvas();
+    const context = elements.context() ?? canvas?.getContext("2d") ?? null;
+    if (canvas && context && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
+      elements.context(context);
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      drawTrackingFrame(context, tracking.frame(), features(), coverMapper(canvas, elements.video()));
+    }
+    animationFrame = requestAnimationFrame(loop);
+  };
+  loop();
 };
-export const renderService = {
-  startLoop: () => { if (active) return; active = true; const loop = () => { if (!active) return; const canvas = elements.canvas(); const ctx = elements.context() ?? canvas?.getContext("2d") ?? null; if (canvas && ctx) { elements.context(ctx); canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; ctx.clearRect(0, 0, canvas.width, canvas.height); const data = tracking.frame(); if (features().pose) draw(ctx, data.poseLandmarks, "#ef4444", 4); if (features().hands) { draw(ctx, data.leftHandLandmarks, "#22c55e", 4); draw(ctx, data.rightHandLandmarks, "#22c55e", 4); } if (features().face) draw(ctx, data.faceLandmarks, "#f8fafc", 1); } frame = requestAnimationFrame(loop); }; loop(); },
-  stopLoop: () => { active = false; if (frame !== null) cancelAnimationFrame(frame); frame = null; },
+
+type StopRenderLoop = () => void;
+const stopRenderLoop: StopRenderLoop = () => {
+  active = false;
+  if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+  animationFrame = null;
 };
+
+export const renderService = { startLoop: startRenderLoop, stopLoop: stopRenderLoop };

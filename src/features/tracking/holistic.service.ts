@@ -26,9 +26,15 @@ const sendFrames = async () => {
     if (Capacitor.getPlatform() === "web") {
       if (video && !video.paused && pose && hands && face) {
         const timestamp = performance.now();
-        const poseResult = pose.detectForVideo(video, timestamp) as Record<string, unknown>;
-        const handResult = hands.detectForVideo(video, timestamp) as Record<string, unknown>;
-        const faceResult = face.detectForVideo(video, timestamp) as Record<string, unknown>;
+        // Keep each detector independent: one unavailable model must not discard the
+        // pose, hand, or face results produced by the other detectors.
+        const detect = (landmarker: { detectForVideo: (source: HTMLVideoElement, time: number) => unknown }, label: string) => {
+          try { return landmarker.detectForVideo(video, timestamp) as Record<string, unknown>; }
+          catch (error) { console.warn(`[tracking] ${label} detection failed`, error); return {}; }
+        };
+        const poseResult = detect(pose, "pose");
+        const handResult = detect(hands, "hand");
+        const faceResult = detect(face, "face");
         const p = Array.isArray(poseResult.landmarks) ? poseResult.landmarks[0] : [];
         const f = Array.isArray(faceResult.faceLandmarks) ? faceResult.faceLandmarks[0] : [];
         const h = Array.isArray(handResult.landmarks) ? handResult.landmarks : [];
