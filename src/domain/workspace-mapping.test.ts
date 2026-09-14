@@ -122,11 +122,11 @@ describe("WorkspaceMapping", () => {
     if (mapped.ok) expect(Object.isFrozen(mapped.position)).toBe(true);
   });
 
-  it("is deterministic for repeated calls", () => {
+  it("returns exactly the same result for repeated identical calls", () => {
     const workspace = mapping();
     const displacement = { x: 0.1, y: 0.05, z: -0.25 };
-    expect(workspace.mapDisplacement("left", displacement)).toEqual(
-      workspace.mapDisplacement("left", displacement),
-    );
+    const first = workspace.mapDisplacement("left", displacement);
+    const second = workspace.mapDisplacement("left", displacement);
+    expect(second).toEqual(first);
   });
 });
