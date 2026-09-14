@@ -20,16 +20,14 @@ export const angle = (a: Point3D, vertex: Point3D, c: Point3D): number => {
     y: c.y - vertex.y,
     z: (c.z ?? 0) - (vertex.z ?? 0),
   };
-  const denominator = Math.hypot(ab.x, ab.y, ab.z) * Math.hypot(cb.x, cb.y, cb.z);
+  const denominator =
+    Math.hypot(ab.x, ab.y, ab.z) * Math.hypot(cb.x, cb.y, cb.z);
   if (denominator === 0) return 0;
   return (
     (Math.acos(
       Math.min(
         1,
-        Math.max(
-          -1,
-          (ab.x * cb.x + ab.y * cb.y + ab.z * cb.z) / denominator
-        )
+        Math.max(-1, (ab.x * cb.x + ab.y * cb.y + ab.z * cb.z) / denominator)
       )
     ) *
       180) /
