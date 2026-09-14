@@ -1,14 +1,36 @@
-# Robot Arm Base Repository Requirements
+# Robot Arm requirements
 
-The authoritative BDD specification is the eight `.feature` files in this directory. This index is descriptive only; scenarios and acceptance text live in those files.
+The authoritative BDD specification is the requirement files in this directory. Requirements 01–08 are the foundational tracking repository. Requirements 09–30 define the sequential teleoperation and NASA/iMETRO roadmap.
 
 ## Requirement files
 
-1. `req-01-remove-lift-mate.feature` — Remove the Lift-Mate fitness application
-2. `req-02-preserve-tracking.feature` — Preserve the useful tracking application
-3. `req-03-tracking-contract.feature` — Create one tracking data contract
-4. `req-04-tracking-separation.feature` — Separate tracking responsibilities
-5. `req-05-platform-support.feature` — Preserve platform support
-6. `req-06-tracking-tests.feature` — Establish deterministic geometry and normalization tests
-7. `req-07-repository-cleanup.feature` — Clean the repository
-8. `req-08-development-readiness.feature` — Repository is ready for new development
+- `req-01-remove-lift-mate.feature`
+- `req-02-preserve-tracking.feature`
+- `req-03-tracking-contract.feature`
+- `req-04-tracking-separation.feature`
+- `req-05-platform-support.feature`
+- `req-06-tracking-tests.feature`
+- `req-07-repository-cleanup.feature`
+- `req-08-development-readiness.feature`
+- `req-09-human-arm-pose.feature`
+- `req-10-human-reference-frame-and-calibration.feature`
+- `req-11-tracking-validity-and-confidence.feature`
+- `req-12-robot-target-contract.feature`
+- `req-13-human-arm-pose-to-robot-target-mapping.feature`
+- `req-14-workspace-mapping-and-normalization.feature`
+- `req-15-smoothing-and-dead-zones.feature`
+- `req-16-control-enablement-and-emergency-stop.feature`
+- `req-17-stale-input-and-tracking-loss.feature`
+- `req-18-robot-adapter-contract.feature`
+- `req-19-browser-to-adapter-transport.feature`
+- `req-20-robot-state-and-feedback.feature`
+- `req-21-imetro-adapter.feature`
+- `req-22-clr-ws-connectivity.feature`
+- `req-23-robot-target-to-nasa-control.feature`
+- `req-24-nasa-feedback-to-robot-state.feature`
+- `req-25-clr-manipulation-and-gripper.feature`
+- `req-26-session-recording.feature`
+- `req-27-network-condition-simulation.feature`
+- `req-28-teleoperation-measurements.feature`
+- `req-29-nasa-manipulation-task.feature`
+- `req-30-split-screen-operator-interface.feature`
