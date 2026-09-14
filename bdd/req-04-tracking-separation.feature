@@ -25,6 +25,14 @@ Then generic angle and distance calculations are separate from MediaPipe initial
 And geometry functions do not access UI state
 And geometry functions do not access camera state
 
+Scenario: Tracking responsibility dependencies are enforced
+When tracking boundary tests are inspected
+Then camera acquisition dependencies appear only in the camera service
+And MediaPipe inference dependencies appear only in the MediaPipe service
+And the viewer depends on the tracking session rather than resource services
+And rendering does not import MediaPipe inference
+And tracking boundary tests fail when these dependency rules are violated
+
 Scenario: Tracking contains no fitness analysis
 When tracking modules are inspected
 Then they contain no rep counting

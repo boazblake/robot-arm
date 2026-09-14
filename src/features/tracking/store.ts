@@ -6,7 +6,7 @@ type State = "Idle" | "Loading" | "Ready" | "Streaming" | "Stopped";
 const transitions: Record<State, Partial<Record<string, State>>> = {
   Idle: { start: "Loading" },
   Loading: { ready: "Ready", error: "Idle" },
-  Ready: { beginStreaming: "Streaming" },
+  Ready: { beginStreaming: "Streaming", stop: "Stopped" },
   Streaming: { stop: "Stopped" },
   Stopped: { restart: "Idle" },
 };

@@ -1,4 +1,4 @@
-import { camera, elements, state, dimensions, transition } from "./store";
+import { camera, elements, dimensions } from "./store";
 import { Capacitor } from "@capacitor/core";
 import { CameraPreview } from "@capacitor-community/camera-preview";
 import { logger } from "./model.utils";
@@ -61,7 +61,13 @@ const initializeNativeCamera = async () => {
   }
 };
 
+type CameraSample = { readonly value?: string };
+
+type CaptureSample = () => Promise<CameraSample>;
+const captureSample: CaptureSample = () => CameraPreview.captureSample({ quality: 35 });
+
 export const cameraService = {
+  captureSample,
   initialize: async () => {
     const platform = Capacitor.getPlatform();
     let success = false;
@@ -85,11 +91,7 @@ export const cameraService = {
       }
     }
 
-    if (!success) {
-      state("Stopped");
-      transition("error");
-      throw new Error(lastError);
-    }
+    if (!success) throw new Error(lastError);
   },
 
   stop: async () => {
@@ -116,8 +118,7 @@ export const cameraService = {
       await cameraService.initialize();
     } catch (error) {
       logger.error(`Camera switch failed: ${String(error)}`);
-      state("Stopped");
-      transition("error");
+      // The tracking session owns the tracking state transition.
     }
   },
 

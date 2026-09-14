@@ -1,8 +1,11 @@
 import { Capacitor } from "@capacitor/core";
-import { CameraPreview } from "@capacitor-community/camera-preview";
 import CapacitorMediaPipe from "./media-pipe";
 import { elements, tracking } from "./store";
-import { normalizeTrackingResult } from "../../integration/normalize";
+import { cameraService } from "./camera.service";
+import {
+  normalizeTrackingResult,
+  normalizeWebTrackingResults,
+} from "../../integration/normalize";
 
 const VERSION = "0.10.22-rc.20250304";
 let pose: {
@@ -92,39 +95,18 @@ const sendFrames = async () => {
             return {};
           }
         };
-        const poseResult = detect(pose, "pose");
-        const handResult = detect(hands, "hand");
-        const faceResult = detect(face, "face");
-        const poseFrame = normalizeTrackingResult(
+        const frame = normalizeWebTrackingResults(
           {
-            poseLandmarks: Array.isArray(poseResult.landmarks)
-              ? poseResult.landmarks[0]
-              : [],
+            pose: detect(pose, "pose"),
+            hands: detect(hands, "hand"),
+            face: detect(face, "face"),
           },
           frameTimestamp
         );
-        const handFrame = normalizeTrackingResult(
-          {
-            handLandmarks: handResult.landmarks ?? handResult.handLandmarks,
-            handednesses: handResult.handednesses ?? handResult.handedness,
-          },
-          frameTimestamp
-        );
-        const faceFrame = normalizeTrackingResult(faceResult, frameTimestamp);
-        tracking.frame(
-          normalizeTrackingResult(
-            {
-              poseLandmarks: poseFrame.poseLandmarks,
-              leftHandLandmarks: handFrame.leftHandLandmarks,
-              rightHandLandmarks: handFrame.rightHandLandmarks,
-              faceLandmarks: faceFrame.faceLandmarks,
-            },
-            frameTimestamp
-          )
-        );
+        tracking.frame(frame);
       }
     } else {
-      const sample = await CameraPreview.captureSample({ quality: 35 });
+      const sample = await cameraService.captureSample();
       if (sample.value) await CapacitorMediaPipe.send({ image: sample.value });
     }
   } finally {
