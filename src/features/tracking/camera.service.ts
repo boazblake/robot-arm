@@ -79,7 +79,9 @@ export const cameraService = {
       if (!success) {
         logger.info("Falling back to web camera implementation");
         success = await initializeWebCamera();
-        if (!success) lastError = "Native and fallback web camera initialization both failed";
+        if (!success)
+          lastError =
+            "Native and fallback web camera initialization both failed";
       }
     }
 

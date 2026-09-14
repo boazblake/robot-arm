@@ -1,1 +1,17 @@
-.app-shell{height:100%;display:flex;flex-direction:column}.app-shell-main{position:relative;flex:1;min-height:0;overflow:auto;background:#111}.tracking{height:100%}
+.app-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #111;
+}
+
+.tracking {
+  height: 100%;
+}

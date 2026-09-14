@@ -60,6 +60,39 @@ describe("MediaPipe tracking normalization", () => {
     expect(frame.rightHandLandmarks).toEqual([]);
   });
 
+  it("accepts the multiHandLandmarks shape", () => {
+    const frame = normalizeTrackingResult({
+      multiHandLandmarks: [hand(0.1)],
+      handednesses: [[{ categoryName: "Left", score: 0.2 }]],
+    }, 123);
+    expect(frame.leftHandLandmarks).toHaveLength(1);
+  });
+
+  it("does not apply a confidence policy during normalization", () => {
+    const frame = normalizeTrackingResult({
+      handLandmarks: [hand(0.1)],
+      handednesses: [[{ categoryName: "Left", score: 0.49 }]],
+    }, 123);
+    expect(frame.leftHandLandmarks).toHaveLength(1);
+  });
+
+  it("does not replace explicit hands with malformed indexed results", () => {
+    const frame = normalizeTrackingResult({
+      leftHandLandmarks: hand(0.1),
+      handLandmarks: [[]],
+      handednesses: [[{ categoryName: "Left" }]],
+    }, 123);
+    expect(frame.leftHandLandmarks).toHaveLength(1);
+  });
+
+  it("does not choose between duplicate handedness assignments", () => {
+    const frame = normalizeTrackingResult({
+      handLandmarks: [hand(0.1), hand(0.2)],
+      handednesses: [[{ categoryName: "Left" }], [{ categoryName: "Left" }]],
+    }, 123);
+    expect(frame.leftHandLandmarks).toEqual([]);
+  });
+
   it("returns immutable tracking data", () => {
     const frame = normalizeTrackingResult({ poseLandmarks: [{ x: 0, y: 0, z: 0 }] }, 123);
     expect(Object.isFrozen(frame)).toBe(true);

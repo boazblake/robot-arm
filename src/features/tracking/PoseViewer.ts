@@ -1,6 +1,14 @@
 import m from "mithril";
 import { Capacitor } from "@capacitor/core";
-import { camera, elements, previewFit, startupError, state, tracking, transition } from "./store";
+import {
+  camera,
+  elements,
+  previewFit,
+  startupError,
+  state,
+  tracking,
+  transition,
+} from "./store";
 import { cameraService } from "./camera.service";
 import { holisticService } from "./holistic.service";
 import { renderService } from "./render.service";
@@ -19,30 +27,41 @@ const TrackingViewer: m.Component = {
   },
   view: () => {
     const frame = tracking.frame();
-    const webFrontCamera = Capacitor.getPlatform() === "web" && camera.position() === "front";
-    return m(`section.tracking-viewer.preview-${previewFit()}${webFrontCamera ? ".web-camera-front" : ""}`, [
-      m("video", { playsinline: true, autoplay: true, muted: true }),
-      m("canvas", { "aria-label": "Detected pose, hand, and face landmarks" }),
-      m("div.tracking-toolbar", [
-        m("strong", "Human-motion tracking"),
-        m(
-          "span",
-          `Pose ${frame.poseLandmarks.length} · Hands ${frame.leftHandLandmarks.length + frame.rightHandLandmarks.length
-          } · Face ${frame.faceLandmarks.length}`
-        ),
-        m(
-          "ion-button",
-          { size: "small", onclick: () => previewFit(previewFit() === "cover" ? "contain" : "cover") },
-          previewFit() === "cover" ? "Zoom out" : "Fill"
-        ),
-        m(
-          "ion-button",
-          { size: "small", onclick: () => void start() },
-          state() === "Streaming" ? "Tracking" : "Start"
-        ),
-      ]),
-      startupError() ? m("p.tracking-error", startupError()) : null,
-    ]);
+    const webFrontCamera =
+      Capacitor.getPlatform() === "web" && camera.position() === "front";
+    return m(
+      `section.tracking-viewer.preview-${previewFit()}${webFrontCamera ? ".web-camera-front" : ""
+      }`,
+      [
+        m("video", { playsinline: true, autoplay: true, muted: true }),
+        m("canvas", {
+          "aria-label": "Detected pose, hand, and face landmarks",
+        }),
+        m("div.tracking-toolbar", [
+          m("strong", "Human-motion tracking"),
+          m(
+            "span",
+            `Pose ${frame.poseLandmarks.length} · Hands ${frame.leftHandLandmarks.length + frame.rightHandLandmarks.length
+            } · Face ${frame.faceLandmarks.length}`
+          ),
+          m(
+            "ion-button",
+            {
+              size: "small",
+              onclick: () =>
+                previewFit(previewFit() === "cover" ? "contain" : "cover"),
+            },
+            previewFit() === "cover" ? "Zoom out" : "Fill"
+          ),
+          m(
+            "ion-button",
+            { size: "small", onclick: () => void start() },
+            state() === "Streaming" ? "Tracking" : "Start"
+          ),
+        ]),
+        startupError() ? m("p.tracking-error", startupError()) : null,
+      ]
+    );
   },
 };
 let starting = false;
