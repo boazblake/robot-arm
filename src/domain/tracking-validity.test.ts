@@ -99,6 +99,42 @@ describe("tracking validity", () => {
     });
   });
 
+  it.each([
+    ["left", "shoulder", 11, "left"],
+    ["left", "elbow", 13, "left"],
+    ["left", "pose wrist", 15, "left"],
+    ["left", "hand anchor", null, "left"],
+    ["right", "shoulder", 12, "right"],
+    ["right", "elbow", 14, "right"],
+    ["right", "pose wrist", 16, "right"],
+    ["right", "hand anchor", null, "right"],
+  ] as const)(
+    "invalidates only the %s arm when its frame %s evidence is missing",
+    (side, _landmarkName, poseIndex, handSide) => {
+      const input = frame();
+      const pose = createHumanArmPose(input);
+      expect(pose.left).not.toBeNull();
+      expect(pose.right).not.toBeNull();
+      const missingEvidence =
+        poseIndex === null
+          ? {
+              ...input,
+              [`${handSide}HandLandmarks`]: [],
+            }
+          : {
+              ...input,
+              poseLandmarks: (() => {
+                const poseLandmarks = [...input.poseLandmarks];
+                delete poseLandmarks[poseIndex];
+                return poseLandmarks;
+              })(),
+            };
+      const result = evaluateTrackingValidity(missingEvidence, pose, policy());
+      expect(result[side]).toEqual({ valid: false, reason: "arm-unavailable" });
+      expect(result[side === "left" ? "right" : "left"]).toEqual({ valid: true });
+    },
+  );
+
   it("rejects invalid policy thresholds", () => {
     for (const threshold of [Number.NaN, Number.POSITIVE_INFINITY, -0.1, 1.1]) {
       expect(createTrackingConfidencePolicy(threshold, "reject")).toEqual({
