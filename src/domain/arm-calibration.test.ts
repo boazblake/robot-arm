@@ -72,10 +72,14 @@ describe("arm calibration", () => {
   });
 
   it("resets only the selected side", () => {
-    const left = calibrateArm(pose(arm(1), null), "left", false);
-    const state = setCalibration(emptyState, left);
+    const left = calibrateArm(pose(arm(1), arm(2)), "left", false);
+    const right = calibrateArm(pose(arm(1), arm(2)), "right", false);
+    const state = setCalibration(setCalibration(emptyState, left), right);
     const result = resetCalibration(state, "left", false);
-    expect(result).toEqual({ ok: true, state: { left: null, right: null } });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.left).toBeNull();
+    expect(result.state.right).toBe(state.right);
   });
 
   it("calculates hand-anchor translation in the source coordinates", () => {
@@ -88,6 +92,22 @@ describe("arm calibration", () => {
     expect(calculateArmDisplacement(calibration.calibration, arm(1))).toEqual({
       available: true,
       displacement: { x: 0, y: 0, z: 0 },
+    });
+  });
+
+  it("preserves calibration through tracking loss and uses it after recovery", () => {
+    const calibration = calibrateArm(pose(arm(1), null), "left", false);
+    if (!calibration.ok) throw new Error("expected calibration");
+    const state = setCalibration(emptyState, calibration);
+
+    expect(calculateArmDisplacement(state.left, null)).toEqual({
+      available: false,
+      reason: "arm-unavailable",
+    });
+    expect(state.left).toBe(calibration.calibration);
+    expect(calculateArmDisplacement(state.left, arm(4))).toEqual({
+      available: true,
+      displacement: { x: 3, y: 3, z: 3 },
     });
   });
 
