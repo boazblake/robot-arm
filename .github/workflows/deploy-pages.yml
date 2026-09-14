@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test -- --run
+        run: npm test
 
       - name: Type-check application
         run: npm run typecheck
@@ -53,7 +53,7 @@ jobs:
           test -n "$(find docs -maxdepth 1 -type f -name 'p-*.entry.js' -print -quit)"
           test -f docs/icon.svg
           echo "Web: VERIFIED"
-          echo "Android: NOT VERIFIED (repository has no android/app module or Gradle wrapper)"
+          echo "Android: NOT VERIFIED (Android build is not executed by this workflow)"
           echo "iOS: NOT VERIFIED (native build is not run by this Linux workflow)"
           ! find docs -type f \( \
             -name '.env' \
