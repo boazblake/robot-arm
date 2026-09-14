@@ -8,6 +8,20 @@ type StopTracking = () => Promise<void>;
 
 let starting = false;
 
+type RollbackStartup = () => Promise<void>;
+const rollbackStartup: RollbackStartup = async () => {
+  try {
+    await holisticService.close();
+  } catch (error) {
+    console.error("[tracking] failed to roll back MediaPipe", error);
+  }
+  try {
+    await cameraService.stop();
+  } catch (error) {
+    console.error("[tracking] failed to roll back camera", error);
+  }
+};
+
 const startTracking: StartTracking = async () => {
   if (starting || state() === "Streaming") return;
   starting = true;
@@ -23,6 +37,7 @@ const startTracking: StartTracking = async () => {
     transition("ready");
     transition("beginStreaming");
   } catch (error) {
+    await rollbackStartup();
     startupError(
       error instanceof Error ? error.message : "Unable to start tracking"
     );
