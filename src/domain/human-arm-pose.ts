@@ -1,4 +1,3 @@
-import type { Point3D } from "./geometry";
 import {
   getHandAnchor,
   getLeftElbow,
@@ -10,11 +9,17 @@ import {
 } from "./human-landmarks";
 import type { Landmark, TrackingFrame } from "./tracking";
 
+export type HumanArmPoint = Readonly<{
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}>;
+
 export type HumanArm = Readonly<{
-  readonly shoulder: Readonly<Point3D>;
-  readonly elbow: Readonly<Point3D>;
-  readonly wrist: Readonly<Point3D>;
-  readonly handAnchor: Readonly<Point3D>;
+  readonly shoulder: HumanArmPoint;
+  readonly elbow: HumanArmPoint;
+  readonly wrist: HumanArmPoint;
+  readonly handAnchor: HumanArmPoint;
 }>;
 
 export type HumanArmPose = Readonly<{
@@ -33,7 +38,7 @@ const finiteLandmark: FiniteLandmark = (landmark) =>
     ? landmark
     : null;
 
-type LandmarkPoint = (landmark: Landmark) => Readonly<Point3D>;
+type LandmarkPoint = (landmark: Landmark) => HumanArmPoint;
 
 const landmarkPoint: LandmarkPoint = (landmark) =>
   Object.freeze({ x: landmark.x, y: landmark.y, z: landmark.z });
