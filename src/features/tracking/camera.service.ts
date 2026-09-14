@@ -64,9 +64,18 @@ const initializeNativeCamera = async () => {
 type CameraSample = { readonly value?: string };
 
 type CaptureSample = () => Promise<CameraSample>;
-const captureSample: CaptureSample = () => CameraPreview.captureSample({ quality: 35 });
+const captureSample: CaptureSample = () =>
+  CameraPreview.captureSample({ quality: 35 });
 
-export const cameraService = {
+type CameraService = {
+  readonly captureSample: CaptureSample;
+  readonly initialize: () => Promise<void>;
+  readonly stop: () => Promise<void>;
+  readonly switch: () => Promise<void>;
+  readonly cleanup: () => Promise<void>;
+};
+
+export const cameraService: CameraService = {
   captureSample,
   initialize: async () => {
     const platform = Capacitor.getPlatform();
