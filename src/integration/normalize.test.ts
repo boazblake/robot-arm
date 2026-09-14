@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTrackingResult } from "./normalize";
+import {
+  normalizeTrackingResult,
+  normalizeWebTrackingResults,
+} from "./normalize";
 
 const hand = (x: number) => [{ x, y: 0.2, z: 0 }];
 const result = (hands: unknown[] = [], handednesses: unknown[] = []) =>
@@ -58,6 +61,24 @@ describe("MediaPipe tracking normalization", () => {
     }, 123);
     expect(frame.leftHandLandmarks).toEqual([]);
     expect(frame.rightHandLandmarks).toEqual([]);
+  });
+
+  it("normalizes deterministic web detector results into one TrackingFrame", () => {
+    const frame = normalizeWebTrackingResults(
+      {
+        pose: { landmarks: [[{ x: 0.1, y: 0.2, z: 0 }]] },
+        hands: {
+          landmarks: [[hand(0.1)]],
+          handednesses: [[{ categoryName: "Left" }]],
+        },
+        face: { faceLandmarks: [{ x: 0.2, y: 0.2, z: 0 }] },
+      },
+      123
+    );
+    expect(frame.timestamp).toBe(123);
+    expect(frame.poseLandmarks).toHaveLength(1);
+    expect(frame.leftHandLandmarks).toHaveLength(1);
+    expect(frame.faceLandmarks).toHaveLength(1);
   });
 
   it("accepts the multiHandLandmarks shape", () => {

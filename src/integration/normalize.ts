@@ -70,6 +70,12 @@ const readHandLabel: ReadHandLabel = (value) => {
   return normalized === "left" || normalized === "right" ? normalized : null;
 };
 
+export type WebTrackingResults = {
+  readonly pose: unknown;
+  readonly hands: unknown;
+  readonly face: unknown;
+};
+
 type NormalizeTrackingResult = (
   input: unknown,
   timestamp?: number
@@ -137,4 +143,30 @@ export const normalizeTrackingResult: NormalizeTrackingResult = (
       "multiFaceLandmarks",
     ]),
   });
+};
+
+type NormalizeWebTrackingResults = (
+  results: WebTrackingResults,
+  timestamp: number
+) => TrackingFrame;
+export const normalizeWebTrackingResults: NormalizeWebTrackingResults = (
+  results,
+  timestamp
+) => {
+  const pose = isRecord(results.pose) ? results.pose : {};
+  return normalizeTrackingResult(
+    {
+      poseLandmarks: Array.isArray(pose.landmarks)
+        ? pose.landmarks[0]
+        : [],
+      handLandmarks: isRecord(results.hands)
+        ? results.hands.landmarks
+        : undefined,
+      handednesses: isRecord(results.hands)
+        ? results.hands.handednesses
+        : undefined,
+      ...(isRecord(results.face) ? results.face : {}),
+    },
+    timestamp
+  );
 };

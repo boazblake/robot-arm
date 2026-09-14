@@ -3,6 +3,9 @@ package io.boazblake.liftmate;
 import com.getcapacitor.BridgeActivity;
 import android.os.Bundle;
 
+import java.util.ArrayList;
+
+import com.getcapacitor.Plugin;
 import io.boazblake.liftmate.capacitormediapipe.CapacitorMediaPipePlugin;
 
 public class MainActivity extends BridgeActivity {

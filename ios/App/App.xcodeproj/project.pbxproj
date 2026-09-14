@@ -7,8 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7A4E8C0A0000000000000001 /* BridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A4E8C0B0000000000000001 /* BridgeViewController.swift */; };
 		1EB976682E18395000380D0A /* MediaPipePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB976662E18395000380D0A /* MediaPipePlugin.swift */; };
-		1EB976692E18395000380D0A /* MediaPipeProccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB976672E18395000380D0A /* MediaPipeProccessor.swift */; };
+		1EB976692E18395000380D0A /* MediaPipeProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB976672E18395000380D0A /* MediaPipeProcessor.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -20,8 +21,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		7A4E8C0B0000000000000001 /* BridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeViewController.swift; sourceTree = "<group>"; };
 		1EB976662E18395000380D0A /* MediaPipePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipePlugin.swift; sourceTree = "<group>"; };
-		1EB976672E18395000380D0A /* MediaPipeProccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipeProccessor.swift; sourceTree = "<group>"; };
+		1EB976672E18395000380D0A /* MediaPipeProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipeProcessor.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -52,7 +54,7 @@
 			isa = PBXGroup;
 			children = (
 				1EB976662E18395000380D0A /* MediaPipePlugin.swift */,
-				1EB976672E18395000380D0A /* MediaPipeProccessor.swift */,
+				1EB976672E18395000380D0A /* MediaPipeProcessor.swift */,
 			);
 			path = MediaPipe;
 			sourceTree = "<group>";
@@ -87,6 +89,7 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				7A4E8C0B0000000000000001 /* BridgeViewController.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -224,7 +227,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1EB976682E18395000380D0A /* MediaPipePlugin.swift in Sources */,
-				1EB976692E18395000380D0A /* MediaPipeProccessor.swift in Sources */,
+				1EB976692E18395000380D0A /* MediaPipeProcessor.swift in Sources */,
+				7A4E8C0A0000000000000001 /* BridgeViewController.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
