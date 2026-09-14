@@ -163,6 +163,7 @@ describe("MediaPipe tracking normalization", () => {
       handednesses: [[{ categoryName: "Left" }], [{ categoryName: "Left" }]],
     }, 123);
     expect(frame.leftHandLandmarks).toEqual([]);
+    expect(frame.rightHandLandmarks).toEqual([]);
   });
 
   it("does not choose between contradictory handedness labels", () => {
