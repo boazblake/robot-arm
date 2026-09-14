@@ -12,5 +12,6 @@ describe("workspace mapping boundary", () => {
   it("depends only on domain mapping types", () => {
     expect(source).toContain('from "./arm-calibration"');
     expect(source).not.toMatch(/from ["'][^"']*(tracking|camera|ui|platform|adapter)[^"']*["']/i);
+    expect(source).not.toMatch(/HumanArm|armLength|arm-length/);
   });
 });

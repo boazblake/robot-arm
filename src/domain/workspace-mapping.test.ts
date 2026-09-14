@@ -40,6 +40,16 @@ describe("WorkspaceMapping", () => {
     });
   });
 
+  it.each([
+    [0.4, 0.2, 0.5, { x: 1, y: 1, z: 1 }],
+    [-0.4, -0.2, -0.5, { x: -1, y: -1, z: -1 }],
+  ] as const)("preserves exact %s boundary displacement", (x, y, z, position) => {
+    expect(mapping().mapDisplacement("left", { x, y, z })).toEqual({
+      ok: true,
+      position,
+    });
+  });
+
   it("maps negative values and clamps both bounds", () => {
     const result = mapping().mapDisplacement("left", {
       x: 0.8,
