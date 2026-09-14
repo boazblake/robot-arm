@@ -75,6 +75,7 @@ describe("MediaPipe tracking normalization", () => {
   it("uses a finite boundary timestamp for malformed timestamps", () => {
     expect(normalizeTrackingResult({ timestamp: Number.NaN }, 123).timestamp).toBe(123);
     expect(normalizeTrackingResult({}, Number.POSITIVE_INFINITY).timestamp).toBeGreaterThan(0);
+    expect(Number.isFinite(normalizeTrackingResult({ timestamp: undefined }).timestamp)).toBe(true);
   });
 
   it("does not guess ambiguous handedness", () => {
@@ -84,6 +85,32 @@ describe("MediaPipe tracking normalization", () => {
     }, 123);
     expect(frame.leftHandLandmarks).toEqual([]);
     expect(frame.rightHandLandmarks).toEqual([]);
+  });
+
+  it("preserves XYZ values through deterministic web normalization", () => {
+    const frame = normalizeWebTrackingResults(
+      {
+        pose: { landmarks: [[{ x: 0.1, y: 0.2, z: -0.3 }]] },
+        hands: {},
+        face: {},
+      },
+      123
+    );
+    expect(frame.poseLandmarks[0]).toEqual({ x: 0.1, y: 0.2, z: -0.3 });
+  });
+
+  it("normalizes invalid detector output without starting a runtime", () => {
+    const frame = normalizeWebTrackingResults(
+      { pose: null, hands: undefined, face: "invalid" },
+      123
+    );
+    expect(frame).toEqual({
+      timestamp: 123,
+      poseLandmarks: [],
+      leftHandLandmarks: [],
+      rightHandLandmarks: [],
+      faceLandmarks: [],
+    });
   });
 
   it("normalizes deterministic web detector results into one TrackingFrame", () => {
