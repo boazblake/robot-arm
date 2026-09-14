@@ -1,14 +1,14 @@
-export interface Landmark {
-  x: number;
-  y: number;
-  z: number;
-  visibility?: number;
-}
+export type Landmark = Readonly<{
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly visibility?: number;
+}>;
 
-export interface TrackingFrame {
-  timestamp: number;
-  poseLandmarks: Landmark[];
-  leftHandLandmarks: Landmark[];
-  rightHandLandmarks: Landmark[];
-  faceLandmarks: Landmark[];
-}
+export type TrackingFrame = Readonly<{
+  readonly timestamp: number;
+  readonly poseLandmarks: readonly Landmark[];
+  readonly leftHandLandmarks: readonly Landmark[];
+  readonly rightHandLandmarks: readonly Landmark[];
+  readonly faceLandmarks: readonly Landmark[];
+}>;

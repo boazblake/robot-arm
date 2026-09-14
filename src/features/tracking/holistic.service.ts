@@ -10,6 +10,14 @@ let hands: { detectForVideo: (video: HTMLVideoElement, time: number) => unknown;
 let face: { detectForVideo: (video: HTMLVideoElement, time: number) => unknown; close: () => void } | null = null;
 let running = false;
 let listener: { remove: () => Promise<void> } | null = null;
+let lastDetectionTimestamp = 0;
+
+type NextDetectionTimestamp = () => number;
+const nextDetectionTimestamp: NextDetectionTimestamp = () => {
+  const currentTimestamp = Math.ceil(performance.now());
+  lastDetectionTimestamp = Math.max(currentTimestamp, lastDetectionTimestamp + 1, 1);
+  return lastDetectionTimestamp;
+};
 
 const webInitialize = async () => {
   const vision = await import("@mediapipe/tasks-vision");
@@ -25,29 +33,29 @@ const sendFrames = async () => {
   try {
     if (Capacitor.getPlatform() === "web") {
       if (video && !video.paused && pose && hands && face) {
-        const timestamp = performance.now();
+        const frameTimestamp = Date.now();
+        const detectionTimestamp = nextDetectionTimestamp();
         // Keep each detector independent: one unavailable model must not discard the
         // pose, hand, or face results produced by the other detectors.
         const detect = (landmarker: { detectForVideo: (source: HTMLVideoElement, time: number) => unknown }, label: string) => {
-          try { return landmarker.detectForVideo(video, timestamp) as Record<string, unknown>; }
+          try { return landmarker.detectForVideo(video, detectionTimestamp) as Record<string, unknown>; }
           catch (error) { console.warn(`[tracking] ${label} detection failed`, error); return {}; }
         };
         const poseResult = detect(pose, "pose");
         const handResult = detect(hands, "hand");
         const faceResult = detect(face, "face");
-        const poseFrame = normalizeTrackingResult({ poseLandmarks: Array.isArray(poseResult.landmarks) ? poseResult.landmarks[0] : [] }, Date.now());
+        const poseFrame = normalizeTrackingResult({ poseLandmarks: Array.isArray(poseResult.landmarks) ? poseResult.landmarks[0] : [] }, frameTimestamp);
         const handFrame = normalizeTrackingResult({
           handLandmarks: handResult.landmarks ?? handResult.handLandmarks,
           handednesses: handResult.handednesses ?? handResult.handedness,
-        }, Date.now());
-        const faceFrame = normalizeTrackingResult(faceResult, Date.now());
-        tracking.frame({
-          timestamp: Date.now(),
+        }, frameTimestamp);
+        const faceFrame = normalizeTrackingResult(faceResult, frameTimestamp);
+        tracking.frame(normalizeTrackingResult({
           poseLandmarks: poseFrame.poseLandmarks,
           leftHandLandmarks: handFrame.leftHandLandmarks,
           rightHandLandmarks: handFrame.rightHandLandmarks,
           faceLandmarks: faceFrame.faceLandmarks,
-        });
+        }, frameTimestamp));
       }
     } else {
       const sample = await CameraPreview.captureSample({ quality: 35 });
@@ -71,6 +79,7 @@ export const holisticService = {
     if (listener) { await listener.remove(); listener = null; }
     pose?.close(); hands?.close(); face?.close();
     pose = null; hands = null; face = null;
+    lastDetectionTimestamp = 0;
     if (Capacitor.getPlatform() !== "web") await CapacitorMediaPipe.close();
     tracking.ready(false);
     tracking.frame({ timestamp: 0, poseLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] });

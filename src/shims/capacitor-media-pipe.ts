@@ -3,8 +3,13 @@
 // no-op functions so that the app doesn't crash when calling
 // native plugin methods on the web.
 
+type InitializeOptions = {
+  readonly modelComplexity?: "full" | "lite";
+  readonly smoothLandmarks?: boolean;
+};
+
 export const CapacitorMediaPipe = {
-  async initialize(options?: any): Promise<void> {
+  async initialize(options?: InitializeOptions): Promise<void> {
     // No-op for the web. The web-specific MediaPipe tasks are initialized instead.
     console.log("CapacitorMediaPipe (web shim): initialize", options);
   },

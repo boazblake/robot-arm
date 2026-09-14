@@ -32,4 +32,38 @@ describe("MediaPipe tracking normalization", () => {
     expect(normalizeTrackingResult({ poseLandmarks: [] }, 123).poseLandmarks).toEqual([]);
     expect(normalizeTrackingResult({ poseLandmarks: [{ x: 0.5, y: 0.5, z: 0 }] }, 124).poseLandmarks).toHaveLength(1);
   });
+
+  it.each([
+    ["missing x", { y: 0, z: 0 }],
+    ["NaN y", { x: 0, y: Number.NaN, z: 0 }],
+    ["infinite z", { x: 0, y: 0, z: Number.POSITIVE_INFINITY }],
+  ])("rejects a malformed landmark category (%s)", (_name, landmark) => {
+    expect(normalizeTrackingResult({ poseLandmarks: [landmark, { x: 1, y: 1, z: 1 }] }, 123).poseLandmarks).toEqual([]);
+  });
+
+  it("preserves landmark indices when all landmarks are valid", () => {
+    const frame = normalizeTrackingResult({ poseLandmarks: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }] }, 123);
+    expect(frame.poseLandmarks[1]).toEqual({ x: 1, y: 1, z: 1 });
+  });
+
+  it("uses a finite boundary timestamp for malformed timestamps", () => {
+    expect(normalizeTrackingResult({ timestamp: Number.NaN }, 123).timestamp).toBe(123);
+    expect(normalizeTrackingResult({}, Number.POSITIVE_INFINITY).timestamp).toBeGreaterThan(0);
+  });
+
+  it("does not guess ambiguous handedness", () => {
+    const frame = normalizeTrackingResult({
+      handLandmarks: [hand(0.5)],
+      handednesses: [[{ categoryName: "Unknown" }]],
+    }, 123);
+    expect(frame.leftHandLandmarks).toEqual([]);
+    expect(frame.rightHandLandmarks).toEqual([]);
+  });
+
+  it("returns immutable tracking data", () => {
+    const frame = normalizeTrackingResult({ poseLandmarks: [{ x: 0, y: 0, z: 0 }] }, 123);
+    expect(Object.isFrozen(frame)).toBe(true);
+    expect(Object.isFrozen(frame.poseLandmarks)).toBe(true);
+    expect(Object.isFrozen(frame.poseLandmarks[0])).toBe(true);
+  });
 });
