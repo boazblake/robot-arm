@@ -21,6 +21,11 @@ const pose = (left: HumanArm | null, right: HumanArm | null): HumanArmPose => ({
 });
 
 const validWorkspace = (position = { x: 10, y: 20, z: 30 }): WorkspaceMapping => ({
+  config: {
+    x: { source: "x", direction: 1, range: 1 },
+    y: { source: "y", direction: 1, range: 1 },
+    z: { source: "z", direction: 1, range: 1 },
+  },
   mapDisplacement: vi.fn((): WorkspaceMappingResult => ({ ok: true, position })),
 });
 
@@ -155,7 +160,10 @@ describe("TeleopMapper", () => {
   it("rejects invalid workspace results and non-finite workspace output", () => {
     expect(
       mapTeleopInput(input({
-        workspace: { mapDisplacement: () => ({ ok: false, reason: "workspace-invalid" }) },
+        workspace: {
+          ...validWorkspace(),
+          mapDisplacement: () => ({ ok: false, reason: "workspace-invalid" }),
+        },
       })),
     ).toEqual({ ok: false, reason: "workspace-invalid" });
     expect(
