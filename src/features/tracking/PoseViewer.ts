@@ -5,6 +5,7 @@ import {
   startupError,
   state,
   tracking,
+  isFrontCamera,
 } from "./store";
 import { trackingSession } from "./session.service";
 import "./pose.css";
@@ -15,14 +16,16 @@ const TrackingViewer: m.Component = {
     elements.canvas(dom.querySelector("canvas"));
   },
   onremove: () => {
-    void trackingSession.stop().catch((error) =>
-      console.error("[tracking] failed to stop session", error)
-    );
+    void trackingSession
+      .stop()
+      .catch((error) =>
+        console.error("[tracking] failed to stop session", error)
+      );
   },
   view: () => {
     const frame = tracking.frame();
     return m(
-      `section.tracking-viewer.preview-${previewFit()}`,
+      `section.tracking-viewer.preview-${previewFit()} ${isFrontCamera()}`,
       [
         m("video", { playsinline: true, autoplay: true, muted: true }),
         m("canvas", {
@@ -32,7 +35,8 @@ const TrackingViewer: m.Component = {
           m("strong", "Human-motion tracking"),
           m(
             "span",
-            `Pose ${frame.poseLandmarks.length} · Hands ${frame.leftHandLandmarks.length + frame.rightHandLandmarks.length
+            `Pose ${frame.poseLandmarks.length} · Hands ${
+              frame.leftHandLandmarks.length + frame.rightHandLandmarks.length
             } · Face ${frame.faceLandmarks.length}`
           ),
           m(

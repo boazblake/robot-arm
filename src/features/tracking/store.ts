@@ -24,6 +24,9 @@ export const camera = {
 };
 export const dimensions = Stream({ width: 1280, height: 720 });
 export const previewFit = Stream<"cover" | "contain">("cover");
+export const isFrontCamera = Stream<"web-camera-front" | null>(
+  "web-camera-front"
+);
 export const elements = {
   video: Stream<HTMLVideoElement | null>(null),
   canvas: Stream<HTMLCanvasElement | null>(null),
