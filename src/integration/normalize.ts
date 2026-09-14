@@ -56,18 +56,34 @@ const findLandmarks: FindLandmarks = (source, keys) => {
     : normalizeLandmarkCollection(source[key]);
 };
 
-type ReadHandLabel = (value: unknown) => "left" | "right" | null;
-const readHandLabel: ReadHandLabel = (value) => {
-  const category = Array.isArray(value)
-    ? value[0]
-    : isRecord(value) && Array.isArray(value.categories)
-      ? value.categories[0]
-      : value;
-  if (!isRecord(category)) return null;
-  const label = category.categoryName ?? category.displayName ?? category.label;
+const MINIMUM_HAND_CONFIDENCE = 0.5;
+
+type ReadHandCategoryLabel = (value: unknown) => "left" | "right" | null;
+const readHandCategoryLabel: ReadHandCategoryLabel = (value) => {
+  if (!isRecord(value)) return null;
+  const label = value.categoryName ?? value.displayName ?? value.label;
   if (typeof label !== "string") return null;
+  if (
+    value.score !== undefined &&
+    (!isFiniteNumber(value.score) || value.score < MINIMUM_HAND_CONFIDENCE)
+  )
+    return null;
   const normalized = label.trim().toLowerCase();
   return normalized === "left" || normalized === "right" ? normalized : null;
+};
+
+type ReadHandLabel = (value: unknown) => "left" | "right" | null;
+const readHandLabel: ReadHandLabel = (value) => {
+  const categories = Array.isArray(value)
+    ? value
+    : isRecord(value) && Array.isArray(value.categories)
+      ? value.categories
+      : [value];
+  const labels = categories
+    .map(readHandCategoryLabel)
+    .filter((label): label is "left" | "right" => label !== null);
+  const uniqueLabels = [...new Set(labels)];
+  return uniqueLabels.length === 1 ? uniqueLabels[0] : null;
 };
 
 export type WebTrackingResults = {

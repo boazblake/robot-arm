@@ -25,6 +25,20 @@ describe("MediaPipe tracking normalization", () => {
     expect(result().rightHandLandmarks).toEqual([]);
   });
 
+  it.each([undefined, null, [], [[]]])(
+    "treats %s as no detection",
+    (absence) => {
+      const frame = normalizeTrackingResult(
+        { poseLandmarks: absence, faceLandmarks: absence, handLandmarks: absence },
+        123
+      );
+      expect(frame.poseLandmarks).toEqual([]);
+      expect(frame.faceLandmarks).toEqual([]);
+      expect(frame.leftHandLandmarks).toEqual([]);
+      expect(frame.rightHandLandmarks).toEqual([]);
+    }
+  );
+
   it("accepts a nested face landmark collection", () => {
     const frame = normalizeTrackingResult({ faceLandmarks: [[{ x: 0.5, y: 0.5, z: 0 }]] }, 123);
     expect(frame.faceLandmarks).toHaveLength(1);
@@ -47,6 +61,15 @@ describe("MediaPipe tracking normalization", () => {
   it("preserves landmark indices when all landmarks are valid", () => {
     const frame = normalizeTrackingResult({ poseLandmarks: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }] }, 123);
     expect(frame.poseLandmarks[1]).toEqual({ x: 1, y: 1, z: 1 });
+  });
+
+  it("rejects only the malformed category and preserves valid categories", () => {
+    const frame = normalizeTrackingResult({
+      poseLandmarks: [{ x: 0, y: Number.NaN, z: 0 }],
+      faceLandmarks: [{ x: 0, y: 0, z: 0 }],
+    }, 123);
+    expect(frame.poseLandmarks).toEqual([]);
+    expect(frame.faceLandmarks).toHaveLength(1);
   });
 
   it("uses a finite boundary timestamp for malformed timestamps", () => {
@@ -84,17 +107,18 @@ describe("MediaPipe tracking normalization", () => {
   it("accepts the multiHandLandmarks shape", () => {
     const frame = normalizeTrackingResult({
       multiHandLandmarks: [hand(0.1)],
-      handednesses: [[{ categoryName: "Left", score: 0.2 }]],
+      handednesses: [[{ categoryName: "Left", score: 0.8 }]],
     }, 123);
     expect(frame.leftHandLandmarks).toHaveLength(1);
   });
 
-  it("does not apply a confidence policy during normalization", () => {
+  it("does not assign a hand with low-confidence handedness", () => {
     const frame = normalizeTrackingResult({
       handLandmarks: [hand(0.1)],
       handednesses: [[{ categoryName: "Left", score: 0.49 }]],
     }, 123);
-    expect(frame.leftHandLandmarks).toHaveLength(1);
+    expect(frame.leftHandLandmarks).toEqual([]);
+    expect(frame.rightHandLandmarks).toEqual([]);
   });
 
   it("does not replace explicit hands with malformed indexed results", () => {
@@ -112,6 +136,15 @@ describe("MediaPipe tracking normalization", () => {
       handednesses: [[{ categoryName: "Left" }], [{ categoryName: "Left" }]],
     }, 123);
     expect(frame.leftHandLandmarks).toEqual([]);
+  });
+
+  it("does not choose between contradictory handedness labels", () => {
+    const frame = normalizeTrackingResult({
+      handLandmarks: [hand(0.1)],
+      handednesses: [[{ categoryName: "Left" }, { categoryName: "Right" }]],
+    }, 123);
+    expect(frame.leftHandLandmarks).toEqual([]);
+    expect(frame.rightHandLandmarks).toEqual([]);
   });
 
   it("returns immutable tracking data", () => {
