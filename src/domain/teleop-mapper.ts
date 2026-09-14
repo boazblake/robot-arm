@@ -5,37 +5,35 @@ import {
   type ArmSide,
 } from "./arm-calibration";
 import type { HumanArmPose } from "./human-arm-pose";
-import {
-  createRobotTarget,
-  type RobotTarget,
-} from "./robot-target";
 import type { ArmTrackingValidity } from "./tracking-validity";
-import type { WorkspaceMapping } from "./workspace-mapping";
+import type {
+  WorkspaceMapping,
+  WorkspacePosition,
+} from "./workspace-mapping";
 
-export type TeleopMappingInput = Readonly<{
+export type TeleopPositionInput = Readonly<{
   readonly side: ArmSide;
   readonly pose: HumanArmPose;
   readonly calibration: ArmCalibration | null;
   readonly validity: ArmTrackingValidity;
   readonly workspace: WorkspaceMapping;
-  readonly sequence: number;
 }>;
 
-export type TeleopMappingFailureReason =
+export type TeleopPositionFailureReason =
   | "arm-unavailable"
   | "tracking-invalid"
   | "not-calibrated"
   | "workspace-invalid"
   | "mapping-invalid";
 
-export type TeleopMappingResult =
+export type TeleopPositionResult =
   | Readonly<{
       readonly ok: true;
-      readonly target: RobotTarget;
+      readonly position: WorkspacePosition;
     }>
   | Readonly<{
       readonly ok: false;
-      readonly reason: TeleopMappingFailureReason;
+      readonly reason: TeleopPositionFailureReason;
     }>;
 
 type IsFiniteNumber = (value: unknown) => value is number;
@@ -48,55 +46,48 @@ type IsFiniteDisplacement = (value: ArmDisplacement) => boolean;
 const isFiniteDisplacement: IsFiniteDisplacement = (value) =>
   isFiniteNumber(value.x) && isFiniteNumber(value.y) && isFiniteNumber(value.z);
 
-type CreateMappingFailure = (
-  reason: TeleopMappingFailureReason,
-) => TeleopMappingResult;
+type IsFinitePosition = (value: WorkspacePosition) => boolean;
 
-const createMappingFailure: CreateMappingFailure = (reason) =>
+const isFinitePosition: IsFinitePosition = (value) =>
+  isFiniteNumber(value.x) && isFiniteNumber(value.y) && isFiniteNumber(value.z);
+
+type CreatePositionFailure = (
+  reason: TeleopPositionFailureReason,
+) => TeleopPositionResult;
+
+const createPositionFailure: CreatePositionFailure = (reason) =>
   Object.freeze({ ok: false, reason });
 
-type MapTeleopInput = (input: TeleopMappingInput) => TeleopMappingResult;
+type MapTeleopPosition = (input: TeleopPositionInput) => TeleopPositionResult;
 
-export const mapTeleopInput: MapTeleopInput = (input) => {
+export const mapTeleopPosition: MapTeleopPosition = (input) => {
   const currentArm = input.side === "left" ? input.pose.left : input.pose.right;
-  if (currentArm === null) return createMappingFailure("arm-unavailable");
-  if (!input.validity.valid) return createMappingFailure("tracking-invalid");
+  if (currentArm === null) return createPositionFailure("arm-unavailable");
+  if (!input.validity.valid) return createPositionFailure("tracking-invalid");
   if (input.calibration === null || input.calibration.side !== input.side) {
-    return createMappingFailure("not-calibrated");
+    return createPositionFailure("not-calibrated");
   }
 
   const displacementResult = calculateArmDisplacement(input.calibration, currentArm);
   if (!displacementResult.available) {
-    return createMappingFailure(
+    return createPositionFailure(
       displacementResult.reason === "arm-unavailable"
         ? "arm-unavailable"
         : "not-calibrated",
     );
   }
   if (!isFiniteDisplacement(displacementResult.displacement)) {
-    return createMappingFailure("mapping-invalid");
+    return createPositionFailure("mapping-invalid");
   }
 
   const workspaceResult = input.workspace.mapDisplacement(
     input.side,
     displacementResult.displacement,
   );
-  if (!workspaceResult.ok) return createMappingFailure("workspace-invalid");
-  if (
-    !isFiniteNumber(workspaceResult.position.x) ||
-    !isFiniteNumber(workspaceResult.position.y) ||
-    !isFiniteNumber(workspaceResult.position.z)
-  ) {
-    return createMappingFailure("mapping-invalid");
+  if (!workspaceResult.ok) return createPositionFailure("workspace-invalid");
+  if (!isFinitePosition(workspaceResult.position)) {
+    return createPositionFailure("mapping-invalid");
   }
 
-  const targetResult = createRobotTarget({
-    side: input.side,
-    position: workspaceResult.position,
-    sourceTimestamp: input.pose.timestamp,
-    sequence: input.sequence,
-  });
-  return targetResult.ok
-    ? Object.freeze({ ok: true, target: targetResult.target })
-    : createMappingFailure("mapping-invalid");
+  return Object.freeze({ ok: true, position: workspaceResult.position });
 };
