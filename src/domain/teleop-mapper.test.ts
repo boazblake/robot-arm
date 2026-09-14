@@ -102,6 +102,25 @@ describe("TeleopMapper", () => {
     expect(mapTeleopInput(mappingInput)).toEqual({ ok: false, reason });
   });
 
+  it("prioritizes unavailable arm over invalid tracking and missing calibration", () => {
+    expect(
+      mapTeleopInput(input({
+        pose: pose(null, arm(10)),
+        validity: { valid: false, reason: "confidence-invalid" },
+        calibration: null,
+      })),
+    ).toEqual({ ok: false, reason: "arm-unavailable" });
+  });
+
+  it("prioritizes invalid tracking over missing calibration", () => {
+    expect(
+      mapTeleopInput(input({
+        validity: { valid: false, reason: "confidence-invalid" },
+        calibration: null,
+      })),
+    ).toEqual({ ok: false, reason: "tracking-invalid" });
+  });
+
   it("preserves pose timestamp and supplied sequence without orientation or gripper", () => {
     const result = mapTeleopInput(input({ sequence: 42 }));
     expect(result).toMatchObject({
@@ -114,7 +133,26 @@ describe("TeleopMapper", () => {
     }
   });
 
-  it("rejects invalid workspace results and non-finite outputs", () => {
+  it("rejects non-finite calculated displacement", () => {
+    const source = pose(arm(1), null);
+    const calibration = calibrationFor(source, "left");
+    const invalidCalibration: ArmCalibration = {
+      ...calibration,
+      reference: {
+        ...calibration.reference,
+        handAnchor: { x: Number.NaN, y: 0, z: 0 },
+      },
+    };
+
+    expect(
+      mapTeleopInput(input({
+        pose: source,
+        calibration: invalidCalibration,
+      })),
+    ).toEqual({ ok: false, reason: "mapping-invalid" });
+  });
+
+  it("rejects invalid workspace results and non-finite workspace output", () => {
     expect(
       mapTeleopInput(input({
         workspace: { mapDisplacement: () => ({ ok: false, reason: "workspace-invalid" }) },
