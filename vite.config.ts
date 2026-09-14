@@ -10,6 +10,7 @@ import fs from "fs";
 export default defineConfig(({ mode }) => {
   const isMobile = mode === "mobile";
   const isSSL = mode === "ssl";
+  const isReadinessCheck = process.env.READINESS_CHECK === "true";
   const certKeyPath = "./.cert/key.pem";
   const certPath = "./.cert/cert.pem";
   const hasCertificates = fs.existsSync(certKeyPath) && fs.existsSync(certPath);
@@ -93,7 +94,7 @@ export default defineConfig(({ mode }) => {
         targets: ["ie >= 11"],
         additionalLegacyPolyfills: ["regenerator-runtime/runtime"],
       }),
-      !isMobile && mkcert(),
+      !isMobile && !isReadinessCheck && mkcert(),
     ],
     resolve: {
       alias,
@@ -108,7 +109,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server:
-      !isMobile || isSSL
+      !isReadinessCheck && (!isMobile || isSSL)
         ? {
             port: 8101,
             strictPort: true,
