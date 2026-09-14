@@ -42,11 +42,13 @@ jobs:
         run: npm run verify:cleanup
 
       - name: Scan tracked tree for secrets
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: detect --source . --no-git --redact --config .gitleaks.toml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:latest \
+            detect --source=/repo --no-git --redact --config=/repo/.gitleaks.toml
 
       - name: Build web application
         run: npm run build

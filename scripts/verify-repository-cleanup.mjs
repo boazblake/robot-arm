@@ -14,6 +14,16 @@ const sourceOwnedPrefixes = [
   ".github/",
 ];
 const datasetExtensions = new Set([".json", ".csv", ".ndjson", ".yaml", ".yml"]);
+const removedLegacyPaths = [
+  "src/exercises/",
+  "src/features/home/",
+  "src/pages/Home.js",
+  "src/pages/Home.ts",
+  "src/pages/Pose/exercises/",
+  "src/stores/workoutStore.ts",
+  "design/",
+  "docs/design/",
+];
 
 const trackedFiles = () =>
   execFileSync("git", ["ls-files", "-z"], {
@@ -25,6 +35,26 @@ const trackedFiles = () =>
 
 const isSourceOwned = (filePath) =>
   sourceOwnedPrefixes.some((prefix) => filePath.startsWith(prefix));
+
+const readJson = (filePath) =>
+  JSON.parse(readFileSync(resolve(repositoryRoot, filePath), "utf8"));
+
+const sortedEntries = (value) =>
+  Object.fromEntries(Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b)));
+
+const verifyDependencyConsistency = () => {
+  const manifest = readJson("package.json");
+  const lockfile = readJson("package-lock.json");
+  const lockedManifest = lockfile.packages?.[""];
+  if (!lockedManifest) throw new Error("package-lock.json has no root package entry");
+  for (const field of ["dependencies", "devDependencies"]) {
+    const declared = JSON.stringify(sortedEntries(manifest[field]));
+    const locked = JSON.stringify(sortedEntries(lockedManifest[field]));
+    if (declared !== locked) {
+      throw new Error(`package-lock.json is out of sync for ${field}`);
+    }
+  }
+};
 
 const findDuplicateDatasets = (files) => {
   const hashes = new Map();
@@ -46,13 +76,24 @@ const findDuplicateDatasets = (files) => {
 const verifyRepositoryCleanup = () => {
   const files = trackedFiles();
   const metadataFiles = files.filter((filePath) => filePath.endsWith(".DS_Store"));
+  const gitignore = readFileSync(resolve(repositoryRoot, ".gitignore"), "utf8");
   const duplicateDatasets = findDuplicateDatasets(files);
+  const legacyFiles = files.filter((filePath) =>
+    removedLegacyPaths.some((legacyPath) => filePath === legacyPath || filePath.startsWith(legacyPath))
+  );
+  if (!/(^|\n)\.DS_Store(?:\n|$)/.test(gitignore)) {
+    throw new Error(".gitignore does not ignore .DS_Store");
+  }
   if (metadataFiles.length > 0) {
     throw new Error(`tracked .DS_Store files: ${metadataFiles.join(", ")}`);
   }
   if (duplicateDatasets.length > 0) {
     throw new Error(`duplicate datasets: ${duplicateDatasets.map((files) => files.join(" = ")).join("; ")}`);
   }
+  if (legacyFiles.length > 0) {
+    throw new Error(`removed legacy paths are still tracked: ${legacyFiles.join(", ")}`);
+  }
+  verifyDependencyConsistency();
   const routes = readFileSync(resolve(repositoryRoot, "src/app/routes.ts"), "utf8");
   const routePaths = [...routes.matchAll(/["'](\/[^"']*)["']/g)].map(
     ([, routePath]) => routePath
