@@ -1,4 +1,4 @@
-import { elements, features, tracking } from "./store";
+import { elements, features, previewFit, tracking } from "./store";
 import type { Landmark, TrackingFrame } from "../../domain/tracking";
 
 const poseConnections: readonly [number, number][] = [
@@ -57,14 +57,19 @@ export const drawTrackingFrame: DrawTrackingFrame = (ctx, frame, flags = { pose:
   if (flags.face) drawPoints(ctx, frame.faceLandmarks, "#f8fafc", 2, map);
 };
 
-type CoverMapper = (canvas: HTMLCanvasElement, video: HTMLVideoElement | null) => PointMapper;
-const coverMapper: CoverMapper = (canvas, video) => {
+type PreviewMapper = (canvas: HTMLCanvasElement, video: HTMLVideoElement | null, fit: "cover" | "contain") => PointMapper;
+const previewMapper: PreviewMapper = (canvas, video, fit) => {
   const videoWidth = video?.videoWidth || canvas.width;
   const videoHeight = video?.videoHeight || canvas.height;
   const videoAspect = videoWidth / videoHeight;
   const canvasAspect = canvas.width / canvas.height;
-  const renderedWidth = videoAspect > canvasAspect ? canvas.height * videoAspect : canvas.width;
-  const renderedHeight = videoAspect > canvasAspect ? canvas.height : canvas.width / videoAspect;
+  const isCover = fit === "cover";
+  const renderedWidth = isCover
+    ? (videoAspect > canvasAspect ? canvas.height * videoAspect : canvas.width)
+    : (videoAspect > canvasAspect ? canvas.width : canvas.height * videoAspect);
+  const renderedHeight = isCover
+    ? (videoAspect > canvasAspect ? canvas.height : canvas.width / videoAspect)
+    : (videoAspect > canvasAspect ? canvas.width / videoAspect : canvas.height);
   const offsetX = (canvas.width - renderedWidth) / 2;
   const offsetY = (canvas.height - renderedHeight) / 2;
   return (point) => ({ x: offsetX + point.x * renderedWidth, y: offsetY + point.y * renderedHeight });
@@ -85,7 +90,7 @@ const startRenderLoop: StartRenderLoop = () => {
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
       context.clearRect(0, 0, canvas.width, canvas.height);
-      drawTrackingFrame(context, tracking.frame(), features(), coverMapper(canvas, elements.video()));
+      drawTrackingFrame(context, tracking.frame(), features(), previewMapper(canvas, elements.video(), previewFit()));
     }
     animationFrame = requestAnimationFrame(loop);
   };

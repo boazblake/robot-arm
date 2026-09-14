@@ -35,7 +35,6 @@
     "@types/mithril": "^2.2.9",
     "@vitejs/plugin-legacy": "^6.1.1",
     "cross-env": "^7.0.3",
-    "eslint": "^10.10.0",
     "oxlint": "^1.82.0",
     "typescript": "^7.0.2",
     "vite": "^6.3.5",
