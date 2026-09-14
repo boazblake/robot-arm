@@ -38,6 +38,16 @@ jobs:
       - name: Type-check application
         run: npm run typecheck
 
+      - name: Verify repository cleanup
+        run: npm run verify:cleanup
+
+      - name: Scan tracked tree for secrets
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --no-git --redact --config .gitleaks.toml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build web application
         run: npm run build
 

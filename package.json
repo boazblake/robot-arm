@@ -10,7 +10,8 @@
     "test:unit": "vitest",
     "lint": "oxlint --quiet",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:cleanup": "node scripts/verify-repository-cleanup.mjs"
   },
   "dependencies": {
     "@capacitor-community/camera-preview": "^7.0.5",

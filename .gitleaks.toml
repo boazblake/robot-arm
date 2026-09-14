@@ -1,0 +1,7 @@
+title = "Robot Arm current-tree secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "No repository-wide suppressions. Add narrowly scoped suppressions with a reason if a confirmed false positive is found."
