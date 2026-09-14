@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drawTrackingFrame } from "../features/tracking/render.service";
+import { drawTrackingFrame } from "./render.service";
 
 const context = () => {
   const calls: string[] = [];

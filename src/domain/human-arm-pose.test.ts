@@ -32,16 +32,21 @@ describe("HumanArmPose", () => {
   });
 
   it.each([
-    ["shoulder", 11],
-    ["elbow", 13],
-    ["pose wrist", 15],
-  ])("rejects a left arm with a missing %s", (_name, index) => {
+    ["left", "shoulder", 11],
+    ["left", "elbow", 13],
+    ["left", "pose wrist", 15],
+    ["right", "shoulder", 12],
+    ["right", "elbow", 14],
+    ["right", "pose wrist", 16],
+  ])("rejects a %s arm with a missing %s", (side, _name, index) => {
     const frame = frameWithArms();
     const poseLandmarks = [...frame.poseLandmarks];
     delete poseLandmarks[index];
     const pose = createHumanArmPose({ ...frame, poseLandmarks });
-    expect(pose.left).toBeNull();
-    expect(pose.right).not.toBeNull();
+    const affectedArm = side === "left" ? pose.left : pose.right;
+    const unaffectedArm = side === "left" ? pose.right : pose.left;
+    expect(affectedArm).toBeNull();
+    expect(unaffectedArm).not.toBeNull();
   });
 
   it("rejects an arm with a missing hand wrist anchor", () => {
