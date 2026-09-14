@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Robot Arm: User-to-Frame Flow",
+    "output": "docs/robot-arm-flow.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1100,
+      700
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "user",
+      "label": "User + frame state"
+    },
+    {
+      "id": "runtime",
+      "label": "Tracking runtime"
+    },
+    {
+      "id": "boundary",
+      "label": "Detection boundary"
+    }
+  ],
+  "phases": [
+    {
+      "id": "capture",
+      "label": "Capture",
+      "fromCol": 0,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "frame",
+      "label": "Frame pipeline",
+      "fromCol": 3,
+      "toCol": 4
+    },
+    {
+      "id": "display",
+      "label": "Display",
+      "fromCol": 5,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "operator",
+    "session",
+    "capture",
+    "normalizer",
+    "store",
+    "viewer"
+  ],
+  "nodes": [
+    {
+      "id": "operator",
+      "lane": "user",
+      "col": 0,
+      "type": "external",
+      "label": "Operator",
+      "sublabel": "start / stop",
+      "width": 80
+    },
+    {
+      "id": "session",
+      "lane": "runtime",
+      "col": 1,
+      "type": "backend",
+      "label": "Session",
+      "sublabel": "lifecycle",
+      "width": 80
+    },
+    {
+      "id": "capture",
+      "lane": "boundary",
+      "col": 2,
+      "type": "external",
+      "label": "Camera + AI",
+      "sublabel": "video + points",
+      "width": 80
+    },
+    {
+      "id": "normalizer",
+      "lane": "runtime",
+      "col": 3,
+      "type": "backend",
+      "label": "Normalizer",
+      "sublabel": "\u2192 TrackingFrame",
+      "width": 80
+    },
+    {
+      "id": "store",
+      "lane": "user",
+      "col": 4,
+      "type": "backend",
+      "label": "Frame store",
+      "sublabel": "latest frame",
+      "width": 80
+    },
+    {
+      "id": "viewer",
+      "lane": "runtime",
+      "col": 5,
+      "type": "frontend",
+      "label": "PoseViewer",
+      "sublabel": "canvas + status",
+      "width": 80
+    }
+  ],
+  "edges": [
+    {
+      "from": "operator",
+      "to": "session",
+      "label": "start",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "from": "session",
+      "to": "capture",
+      "label": "lifecycle",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "from": "capture",
+      "to": "normalizer",
+      "label": "results",
+      "variant": "default",
+      "role": "main"
+    },
+    {
+      "from": "normalizer",
+      "to": "store",
+      "label": "frame",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "from": "store",
+      "to": "viewer",
+      "label": "read",
+      "role": "main",
+      "variant": "default"
+    }
+  ],
+  "cards": []
+}
