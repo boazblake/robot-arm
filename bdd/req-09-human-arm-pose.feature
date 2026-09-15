@@ -81,3 +81,10 @@ And they cover finite coordinate preservation
 And they cover timestamp preservation
 And they cover immutability
 And they cover the documented MediaPipe index mapping
+
+Scenario: HumanArmPose presentation preserves anatomical side labels
+Given a front-camera preview is mirrored
+When HumanArmPose arms are presented in the camera HUD
+Then the left and right labels identify anatomical sides
+And mirroring changes only camera-space presentation coordinates
+And it does not swap HumanArmPose.left and HumanArmPose.right

@@ -23,3 +23,15 @@ Given LiftMate tracking is operational
 When an adapter fails
 Then tracking remains operational
 And no command is reported as executed
+
+Scenario: RobotAdapter.stop is global
+Given a connected robot system has one or more controlled arms
+When RobotAdapter.stop is requested
+Then it requests the connected robot system to stop motion
+And it does not require a per-arm stop request
+
+Scenario: RobotAdapter.stop is idempotent
+Given RobotAdapter.stop has already been requested
+When RobotAdapter.stop is requested again
+Then the repeated request is safe
+And it does not create an unsafe duplicate motion command

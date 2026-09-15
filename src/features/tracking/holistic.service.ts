@@ -1,6 +1,8 @@
+import m from "mithril";
 import { Capacitor } from "@capacitor/core";
 import CapacitorMediaPipe from "./media-pipe";
 import { elements, tracking } from "./store";
+import { processTrackingFrame, resetTrackingPipeline } from "./tracking-pipeline";
 import { cameraService } from "./camera.service";
 import {
   normalizeTrackingResult,
@@ -104,6 +106,8 @@ const sendFrames = async () => {
           frameTimestamp
         );
         tracking.frame(frame);
+        processTrackingFrame(frame);
+        m.redraw();
       }
     } else {
       const sample = await cameraService.captureSample();
@@ -124,7 +128,12 @@ export const holisticService = {
       });
       listener = await CapacitorMediaPipe.addListener(
         "holisticResults",
-        (result: unknown) => tracking.frame(normalizeTrackingResult(result))
+        (result: unknown) => {
+          const frame = normalizeTrackingResult(result);
+          tracking.frame(frame);
+          processTrackingFrame(frame);
+          m.redraw();
+        }
       );
     }
     tracking.ready(true);
@@ -134,6 +143,9 @@ export const holisticService = {
       running = true;
       void sendFrames();
     }
+  },
+  stopFrameLoop: () => {
+    running = false;
   },
   close: async () => {
     running = false;
@@ -150,6 +162,7 @@ export const holisticService = {
     lastDetectionTimestamp = 0;
     if (Capacitor.getPlatform() !== "web") await CapacitorMediaPipe.close();
     tracking.ready(false);
+    tracking.paused(false);
     tracking.frame({
       timestamp: 0,
       poseLandmarks: [],
@@ -157,5 +170,6 @@ export const holisticService = {
       rightHandLandmarks: [],
       faceLandmarks: [],
     });
+    resetTrackingPipeline();
   },
 };

@@ -34,6 +34,7 @@ export const elements = {
 };
 export const tracking = {
   ready: Stream(false),
+  paused: Stream(false),
   frame: Stream<TrackingFrame>({
     timestamp: 0,
     poseLandmarks: [],

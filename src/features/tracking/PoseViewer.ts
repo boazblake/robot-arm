@@ -3,10 +3,10 @@ import {
   elements,
   previewFit,
   startupError,
-  state,
   tracking,
   isFrontCamera,
 } from "./store";
+import TrackingHud from "./TrackingHud";
 import { trackingSession } from "./session.service";
 import "./pose.css";
 
@@ -14,6 +14,9 @@ const TrackingViewer: m.Component = {
   oncreate: ({ dom }) => {
     elements.video(dom.querySelector("video"));
     elements.canvas(dom.querySelector("canvas"));
+    void trackingSession.start().catch((error) =>
+      console.error("[tracking] failed to start session", error)
+    );
   },
   onremove: () => {
     void trackingSession
@@ -50,11 +53,16 @@ const TrackingViewer: m.Component = {
           ),
           m(
             "ion-button",
-            { size: "small", onclick: () => void trackingSession.start() },
-            state() === "Streaming" ? "Tracking" : "Start"
+            {
+              size: "small",
+              disabled: !tracking.ready(),
+              onclick: () => tracking.paused() ? trackingSession.resume() : trackingSession.pause(),
+            },
+            tracking.paused() ? "Resume Tracking" : tracking.ready() ? "Pause Tracking" : "Starting…"
           ),
         ]),
         startupError() ? m("p.tracking-error", startupError()) : null,
+        m(TrackingHud),
       ]
     );
   },

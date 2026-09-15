@@ -1,7 +1,7 @@
 import { cameraService } from "./camera.service";
 import { holisticService } from "./holistic.service";
 import { renderService } from "./render.service";
-import { startupError, state, transition } from "./store";
+import { startupError, state, tracking, transition } from "./store";
 
 type StartTracking = () => Promise<void>;
 type StopTracking = () => Promise<void>;
@@ -33,6 +33,7 @@ const startTracking: StartTracking = async () => {
     await cameraService.initialize();
     await holisticService.initialize();
     renderService.startLoop();
+    tracking.paused(false);
     holisticService.startFrameLoop();
     transition("ready");
     transition("beginStreaming");
@@ -47,6 +48,17 @@ const startTracking: StartTracking = async () => {
   }
 };
 
+const pauseTracking = (): void => {
+  holisticService.stopFrameLoop();
+  tracking.paused(true);
+};
+
+const resumeTracking = (): void => {
+  if (state() !== "Streaming") return;
+  tracking.paused(false);
+  holisticService.startFrameLoop();
+};
+
 const stopTracking: StopTracking = async () => {
   renderService.stopLoop();
   await holisticService.close();
@@ -57,4 +69,6 @@ const stopTracking: StopTracking = async () => {
 export const trackingSession = {
   start: startTracking,
   stop: stopTracking,
+  pause: pauseTracking,
+  resume: resumeTracking,
 };

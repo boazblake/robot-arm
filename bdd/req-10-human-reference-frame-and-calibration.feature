@@ -95,3 +95,9 @@ Scenario: Calibration is robot-independent
 When calibration logic is inspected
 Then it depends only on HumanArmPose, HumanArm, generic geometry, and calibration domain types
 And it does not depend on RobotTarget, RobotAdapter, TeleopMapper, NASA, iMETRO, SO-101, ROS, MoveIt, or robot-control modules
+
+Scenario: Calibration HUD markers use the camera projection
+Given a calibration reference and current hand anchor are displayed over the camera view
+When the front-camera preview is mirrored
+Then the fixed calibration marker, current anchor marker, and connecting line use the same mirror transform as the camera and skeleton
+And the line still represents current hand anchor minus calibration reference

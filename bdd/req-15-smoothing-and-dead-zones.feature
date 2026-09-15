@@ -227,3 +227,17 @@ Feature: Requirement 15 - Workspace position stabilization
     Then it accepts WorkspacePosition rather than TrackingFrame or MediaPipe data
     And it does not depend on camera, screen, canvas, window, DOM, or UI state
     And it does not depend on RobotTarget, RobotAdapter, NASA, iMETRO, CLR, ROS, MoveIt, MuJoCo, or servo protocols
+
+  Scenario: Stabilization HUD presents raw and stabilized positions separately
+    Given Requirement 14 produced a raw WorkspacePosition
+    And Requirement 15 produced a stabilized WorkspacePosition
+    When the positions are displayed in the workspace visualization
+    Then both positions are visible
+    And a line connects raw to stabilized
+    And camera mirroring does not alter either normalized position
+
+  Scenario: Stabilization HUD does not own stabilization history
+    Given the HUD displays a short stabilized-position trail
+    When the HUD is recreated or rendering pauses
+    Then the trail is presentation history only
+    And stabilization state remains owned by the caller of Requirement 15

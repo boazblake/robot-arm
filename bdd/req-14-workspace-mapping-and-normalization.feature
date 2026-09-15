@@ -202,3 +202,10 @@ Feature: Requirement 14 - Calibrated displacement to workspace mapping
     When workspace mapping runs more than once
     Then every run produces the same result
     And it reads no clock, randomness, screen state, camera state, or robot state
+
+  Scenario: Workspace HUD is independent of camera mirroring
+    Given a WorkspacePosition is displayed in the workspace visualization
+    When the front camera preview is mirrored
+    Then the displayed x, y, and z values remain unchanged
+    And the workspace cube uses normalized coordinates in [-1, 1]
+    And it does not use robot dimensions or screen dimensions
