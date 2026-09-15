@@ -24,6 +24,7 @@ describe("control orchestrator", () => {
     };
     const orchestrator = createControlOrchestrator(adapter);
 
+    await orchestrator.applyFreshness("left", true, 1000);
     await orchestrator.enable("left", readiness);
     const first = orchestrator.submitTarget(target());
     const stopped = orchestrator.requestEmergencyStop();
@@ -63,6 +64,38 @@ describe("control orchestrator", () => {
       state: { left: "disabled", right: "disabled" },
     });
     await expect(orchestrator.submitTarget(target())).resolves.toBe(false);
+  });
+
+  it("exposes freshness-triggered stop failure without unlocking control", async () => {
+    const adapter = {
+      sendTarget: vi.fn(async () => undefined),
+      stop: vi.fn(async () => { throw new Error("unavailable"); }),
+    };
+    const orchestrator = createControlOrchestrator(adapter, { left: "enabled", right: "enabled" });
+
+    await orchestrator.applyFreshness("left", true, 1000);
+    await orchestrator.applyFreshness("left", false, 2001);
+
+    expect(orchestrator.getLastFreshnessStopResult()).toEqual({
+      ok: false,
+      reason: "adapter-stop-failed",
+    });
+    expect(orchestrator.getState()).toEqual({ left: "disabled", right: "disabled" });
+  });
+
+  it("checks freshness before control permission when submitting a target", async () => {
+    const adapter = {
+      sendTarget: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+    };
+    const orchestrator = createControlOrchestrator(adapter);
+
+    await orchestrator.applyFreshness("left", true, 1000);
+    await orchestrator.applyFreshness("left", false, 1300);
+    await expect(orchestrator.submitTargetResult(target())).resolves.toEqual({
+      ok: false,
+      reason: "input-stale",
+    });
   });
 
   it("globally disables both arms when one arm becomes lost", async () => {

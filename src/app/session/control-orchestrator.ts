@@ -3,6 +3,7 @@ import {
   createFreshnessConfig,
   createInputFreshnessState,
   updateInputFreshness,
+  rejectStaleInput,
   type FreshnessUpdate,
   type InputFreshnessState,
 } from "../../teleoperation/freshness/input-freshness";
@@ -32,9 +33,12 @@ export type EmergencyStopResult =
   | Readonly<{ readonly ok: true }>
   | Readonly<{ readonly ok: false; readonly reason: "adapter-stop-failed" }>;
 
+export type FreshnessStopResult = EmergencyStopResult | null;
+
 export type ControlOrchestrator = Readonly<{
   readonly getState: () => ControlState;
   readonly getFreshness: () => InputFreshnessState;
+  readonly getLastFreshnessStopResult: () => FreshnessStopResult;
   readonly applyFreshness: (
     side: ArmSide,
     trackingValid: boolean,
@@ -68,6 +72,7 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
 ) => {
   let state = Object.freeze({ left: initialState.left, right: initialState.right });
   let freshness = createInputFreshnessState();
+  let lastFreshnessStopResult: FreshnessStopResult = null;
   const freshnessConfig = createFreshnessConfig();
   let tail: Promise<void> = Promise.resolve();
 
@@ -87,6 +92,7 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
 
   const getState = (): ControlState => state;
   const getFreshness = (): InputFreshnessState => freshness;
+  const getLastFreshnessStopResult = (): FreshnessStopResult => lastFreshnessStopResult;
 
   const applyFreshness = (
     side: ArmSide,
@@ -101,6 +107,7 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
         const result = disableControl(state, side);
         if (result.ok) state = result.state;
       }
+      lastFreshnessStopResult = null;
       if (update.events.includes("input-became-lost")) {
         const left = disableControl(state, "left");
         if (left.ok) state = left.state;
@@ -108,8 +115,10 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
         if (right.ok) state = right.state;
         try {
           await adapter.stop();
+          lastFreshnessStopResult = Object.freeze({ ok: true });
         } catch {
           // A failed physical stop never restores local control.
+          lastFreshnessStopResult = Object.freeze({ ok: false, reason: "adapter-stop-failed" });
         }
       }
       return update;
@@ -146,10 +155,11 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
 
   const submitTargetResult = (target: RobotTarget): Promise<TransmissionResult> =>
     enqueue(async () => {
+      const sideFreshness = target.side === "left" ? freshness.left.status : freshness.right.status;
+      const freshnessRejection = rejectStaleInput(sideFreshness);
+      if (freshnessRejection !== null) return Object.freeze({ ok: false, reason: freshnessRejection });
       if (!canTransmitTarget(state, target.side)) {
-        const status = target.side === "left" ? freshness.left.status : freshness.right.status;
-        const reason = status === "stale" ? "input-stale" : status === "lost" ? "input-lost" : "control-disabled";
-        return Object.freeze({ ok: false, reason });
+        return Object.freeze({ ok: false, reason: "control-disabled" });
       }
       await adapter.sendTarget(target);
       return Object.freeze({ ok: true });
@@ -161,6 +171,7 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
   return Object.freeze({
     getState,
     getFreshness,
+    getLastFreshnessStopResult,
     applyFreshness,
     enable,
     disable,
