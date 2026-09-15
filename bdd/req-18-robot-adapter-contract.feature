@@ -35,3 +35,11 @@ Given RobotAdapter.stop has already been requested
 When RobotAdapter.stop is requested again
 Then the repeated request is safe
 And it does not create an unsafe duplicate motion command
+
+Scenario: Adapter may reject a stale target as defense in depth
+Given the control orchestrator has already evaluated target freshness
+And a RobotTarget reaches the adapter after the adapter's stale threshold
+When the adapter evaluates that target
+Then it may reject the target with a typed stale-target result
+And it does not extrapolate movement
+And the orchestrator remains authoritative for pre-adapter freshness decisions

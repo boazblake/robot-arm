@@ -29,6 +29,14 @@ And calibration has not been completed for the selected arm
 When no explicit calibration action occurs
 Then movement is not represented as calibrated control input
 
+Scenario: Tracking-loss recovery may rebase calibration through orchestration
+Given an arm was previously calibrated
+And Requirement 17 reports stale or lost input
+When valid tracking returns
+Then orchestration may replace that arm's calibration reference with the current HumanArm
+And the replacement is session-scoped
+And the arm remains disabled until explicit control enablement
+
 Scenario: Calibration is rejected during active robot control
 Given the requested arm is usable
 And robot control is active

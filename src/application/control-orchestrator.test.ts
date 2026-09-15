@@ -64,4 +64,17 @@ describe("control orchestrator", () => {
     });
     await expect(orchestrator.submitTarget(target())).resolves.toBe(false);
   });
+
+  it("globally disables both arms when one arm becomes lost", async () => {
+    const adapter = {
+      sendTarget: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+    };
+    const orchestrator = createControlOrchestrator(adapter, { left: "enabled", right: "enabled" });
+
+    await orchestrator.applyFreshness("left", true, 1000);
+    await orchestrator.applyFreshness("left", false, 2001);
+    expect(orchestrator.getState()).toEqual({ left: "disabled", right: "disabled" });
+    expect(adapter.stop).toHaveBeenCalledTimes(1);
+  });
 });

@@ -19,7 +19,10 @@ export type StabilizationConfigInput = Readonly<{
 
 export type StabilizationConfigResult =
   | Readonly<{ readonly ok: true; readonly config: StabilizationConfig }>
-  | Readonly<{ readonly ok: false; readonly reason: "alpha-invalid" | "dead-zone-invalid" }>;
+  | Readonly<{
+      readonly ok: false;
+      readonly reason: "alpha-invalid" | "dead-zone-invalid";
+    }>;
 
 export type StabilizationState = Readonly<{
   readonly left: WorkspacePosition | null;
@@ -45,30 +48,51 @@ const isFiniteNumber: IsFiniteNumber = (value): value is number =>
 type IsValidPosition = (value: WorkspacePosition | null) => boolean;
 const isValidPosition: IsValidPosition = (value) =>
   value !== null &&
-  isFiniteNumber(value.x) && value.x >= -1 && value.x <= 1 &&
-  isFiniteNumber(value.y) && value.y >= -1 && value.y <= 1 &&
-  isFiniteNumber(value.z) && value.z >= -1 && value.z <= 1;
+  isFiniteNumber(value.x) &&
+  value.x >= -1 &&
+  value.x <= 1 &&
+  isFiniteNumber(value.y) &&
+  value.y >= -1 &&
+  value.y <= 1 &&
+  isFiniteNumber(value.z) &&
+  value.z >= -1 &&
+  value.z <= 1;
 
-type ReadSidePosition = (state: StabilizationState, side: ArmSide) => WorkspacePosition | null;
+type ReadSidePosition = (
+  state: StabilizationState,
+  side: ArmSide
+) => WorkspacePosition | null;
 const readSidePosition: ReadSidePosition = (state, side) =>
   side === "left" ? state.left : state.right;
 
 type ReplaceSidePosition = (
   state: StabilizationState,
   side: ArmSide,
-  position: WorkspacePosition | null,
+  position: WorkspacePosition | null
 ) => StabilizationState;
 const replaceSidePosition: ReplaceSidePosition = (state, side, position) =>
-  Object.freeze(side === "left" ? { left: position, right: state.right } : { left: state.left, right: position });
+  Object.freeze(
+    side === "left"
+      ? { left: position, right: state.right }
+      : { left: state.left, right: position }
+  );
 
 type FilterAxis = (value: number, threshold: number) => number;
-const filterAxis: FilterAxis = (value, threshold) => Math.abs(value) <= threshold ? 0 : value;
+const filterAxis: FilterAxis = (value, threshold) =>
+  Math.abs(value) <= threshold ? 0 : value;
 
-type SmoothAxis = (previous: number | null, current: number, alpha: number) => number;
+type SmoothAxis = (
+  previous: number | null,
+  current: number,
+  alpha: number
+) => number;
 const smoothAxis: SmoothAxis = (previous, current, alpha) =>
   previous === null ? current : alpha * current + (1 - alpha) * previous;
 
-type FilterPosition = (position: WorkspacePosition, deadZone: DeadZone) => WorkspacePosition;
+type FilterPosition = (
+  position: WorkspacePosition,
+  deadZone: DeadZone
+) => WorkspacePosition;
 const filterPosition: FilterPosition = (position, deadZone) =>
   Object.freeze({
     x: filterAxis(position.x, deadZone.x),
@@ -79,7 +103,7 @@ const filterPosition: FilterPosition = (position, deadZone) =>
 type SmoothPosition = (
   previous: WorkspacePosition | null,
   current: WorkspacePosition,
-  alpha: number,
+  alpha: number
 ) => WorkspacePosition;
 const smoothPosition: SmoothPosition = (previous, current, alpha) =>
   Object.freeze({
@@ -89,7 +113,7 @@ const smoothPosition: SmoothPosition = (previous, current, alpha) =>
   });
 
 type CreateStabilizationConfig = (
-  input: StabilizationConfigInput,
+  input: StabilizationConfigInput
 ) => StabilizationConfigResult;
 
 export const createStabilizationConfig: CreateStabilizationConfig = (input) => {
@@ -98,15 +122,24 @@ export const createStabilizationConfig: CreateStabilizationConfig = (input) => {
   }
   const { x, y, z } = input.deadZone;
   if (
-    !isFiniteNumber(x) || x < 0 || x > 1 ||
-    !isFiniteNumber(y) || y < 0 || y > 1 ||
-    !isFiniteNumber(z) || z < 0 || z > 1
+    !isFiniteNumber(x) ||
+    x < 0 ||
+    x > 1 ||
+    !isFiniteNumber(y) ||
+    y < 0 ||
+    y > 1 ||
+    !isFiniteNumber(z) ||
+    z < 0 ||
+    z > 1
   ) {
     return Object.freeze({ ok: false, reason: "dead-zone-invalid" });
   }
   return Object.freeze({
     ok: true,
-    config: Object.freeze({ alpha: input.alpha, deadZone: Object.freeze({ x, y, z }) }),
+    config: Object.freeze({
+      alpha: input.alpha,
+      deadZone: Object.freeze({ x, y, z }),
+    }),
   });
 };
 
@@ -114,7 +147,10 @@ type CreateStabilizationState = () => StabilizationState;
 export const createStabilizationState: CreateStabilizationState = () =>
   Object.freeze({ left: null, right: null });
 
-type ResetStabilizationState = (state: StabilizationState, side: ArmSide) => StabilizationState;
+type ResetStabilizationState = (
+  state: StabilizationState,
+  side: ArmSide
+) => StabilizationState;
 export const resetStabilizationState: ResetStabilizationState = (state, side) =>
   replaceSidePosition(state, side, null);
 
@@ -122,14 +158,14 @@ type StabilizeWorkspacePosition = (
   state: StabilizationState,
   side: ArmSide,
   position: WorkspacePosition,
-  config: StabilizationConfig,
+  config: StabilizationConfig
 ) => StabilizationResult;
 
 export const stabilizeWorkspacePosition: StabilizeWorkspacePosition = (
   state,
   side,
   position,
-  config,
+  config
 ) => {
   const previous = readSidePosition(state, side);
   if (previous !== null && !isValidPosition(previous)) {

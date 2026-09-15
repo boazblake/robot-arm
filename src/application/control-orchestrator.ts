@@ -1,5 +1,12 @@
 import type { RobotTarget } from "../domain/robot-target";
 import {
+  createFreshnessConfig,
+  createInputFreshnessState,
+  updateInputFreshness,
+  type FreshnessUpdate,
+  type InputFreshnessState,
+} from "../domain/input-freshness";
+import {
   applyReadiness,
   canTransmitTarget,
   clearEmergencyStop,
@@ -17,12 +24,22 @@ export type RobotControlAdapter = Readonly<{
   readonly stop: () => Promise<void>;
 }>;
 
+export type TransmissionResult =
+  | Readonly<{ readonly ok: true }>
+  | Readonly<{ readonly ok: false; readonly reason: "control-disabled" | "input-stale" | "input-lost" }>;
+
 export type EmergencyStopResult =
   | Readonly<{ readonly ok: true }>
   | Readonly<{ readonly ok: false; readonly reason: "adapter-stop-failed" }>;
 
 export type ControlOrchestrator = Readonly<{
   readonly getState: () => ControlState;
+  readonly getFreshness: () => InputFreshnessState;
+  readonly applyFreshness: (
+    side: ArmSide,
+    trackingValid: boolean,
+    now: number,
+  ) => Promise<FreshnessUpdate>;
   readonly enable: (
     side: ArmSide,
     readiness: ControlReadiness,
@@ -35,6 +52,7 @@ export type ControlOrchestrator = Readonly<{
   readonly clearEmergencyStop: () => Promise<ControlTransitionResult>;
   readonly requestEmergencyStop: () => Promise<EmergencyStopResult>;
   readonly submitTarget: (target: RobotTarget) => Promise<boolean>;
+  readonly submitTargetResult: (target: RobotTarget) => Promise<TransmissionResult>;
 }>;
 
 type Enqueue = <A>(operation: () => Promise<A>) => Promise<A>;
@@ -49,6 +67,8 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
   initialState = { left: "disabled", right: "disabled" },
 ) => {
   let state = Object.freeze({ left: initialState.left, right: initialState.right });
+  let freshness = createInputFreshnessState();
+  const freshnessConfig = createFreshnessConfig();
   let tail: Promise<void> = Promise.resolve();
 
   const enqueue: Enqueue = <A>(operation: () => Promise<A>): Promise<A> => {
@@ -66,6 +86,34 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
   };
 
   const getState = (): ControlState => state;
+  const getFreshness = (): InputFreshnessState => freshness;
+
+  const applyFreshness = (
+    side: ArmSide,
+    trackingValid: boolean,
+    now: number,
+  ): Promise<FreshnessUpdate> =>
+    enqueue(async () => {
+      if (!freshnessConfig.ok) throw new Error("Invalid freshness configuration");
+      const update = updateInputFreshness(freshness, side, trackingValid, now, freshnessConfig.config);
+      freshness = update.state;
+      if (update.freshness === "stale") {
+        const result = disableControl(state, side);
+        if (result.ok) state = result.state;
+      }
+      if (update.events.includes("input-became-lost")) {
+        const left = disableControl(state, "left");
+        if (left.ok) state = left.state;
+        const right = disableControl(state, "right");
+        if (right.ok) state = right.state;
+        try {
+          await adapter.stop();
+        } catch {
+          // A failed physical stop never restores local control.
+        }
+      }
+      return update;
+    });
 
   const enable = (
     side: ArmSide,
@@ -96,20 +144,30 @@ export const createControlOrchestrator: CreateControlOrchestrator = (
       }
     });
 
-  const submitTarget = (target: RobotTarget): Promise<boolean> =>
+  const submitTargetResult = (target: RobotTarget): Promise<TransmissionResult> =>
     enqueue(async () => {
-      if (!canTransmitTarget(state, target.side)) return false;
+      if (!canTransmitTarget(state, target.side)) {
+        const status = target.side === "left" ? freshness.left.status : freshness.right.status;
+        const reason = status === "stale" ? "input-stale" : status === "lost" ? "input-lost" : "control-disabled";
+        return Object.freeze({ ok: false, reason });
+      }
       await adapter.sendTarget(target);
-      return true;
+      return Object.freeze({ ok: true });
     });
+
+  const submitTarget = (target: RobotTarget): Promise<boolean> =>
+    submitTargetResult(target).then((result) => result.ok);
 
   return Object.freeze({
     getState,
+    getFreshness,
+    applyFreshness,
     enable,
     disable,
     applyReadiness: applyReadinessToState,
     clearEmergencyStop: clear,
     requestEmergencyStop,
     submitTarget,
+    submitTargetResult,
   });
 };

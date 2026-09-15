@@ -42,6 +42,7 @@ const armCard = (side: ArmSide, arm: ArmPipelineSnapshot): m.Children => {
     m("div.hud-status-row", [
       status(arm.calibration !== null, arm.calibration === null ? "NOT CALIBRATED" : "CALIBRATED"),
       status(arm.validity.valid, arm.validity.valid ? "VALID" : `INVALID ${arm.validity.reason}`),
+      m("span", { class: arm.freshness === "fresh" ? "hud-ok" : "hud-warning" }, `INPUT ${arm.freshness.toUpperCase()}`),
     ]),
     m("div.hud-landmarks", labels.map((label, index) => {
       const landmark = arm.pose === null ? null : [arm.pose.shoulder, arm.pose.elbow, arm.pose.wrist, arm.pose.handAnchor][index];

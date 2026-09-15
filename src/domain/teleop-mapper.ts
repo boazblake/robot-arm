@@ -6,10 +6,7 @@ import {
 } from "./arm-calibration";
 import type { HumanArmPose } from "./human-arm-pose";
 import type { ArmTrackingValidity } from "./tracking-validity";
-import type {
-  WorkspaceMapping,
-  WorkspacePosition,
-} from "./workspace-mapping";
+import type { WorkspaceMapping, WorkspacePosition } from "./workspace-mapping";
 
 export type TeleopPositionInput = Readonly<{
   readonly side: ArmSide;
@@ -52,7 +49,7 @@ const isFinitePosition: IsFinitePosition = (value) =>
   isFiniteNumber(value.x) && isFiniteNumber(value.y) && isFiniteNumber(value.z);
 
 type CreatePositionFailure = (
-  reason: TeleopPositionFailureReason,
+  reason: TeleopPositionFailureReason
 ) => TeleopPositionResult;
 
 const createPositionFailure: CreatePositionFailure = (reason) =>
@@ -68,12 +65,15 @@ export const mapTeleopPosition: MapTeleopPosition = (input) => {
     return createPositionFailure("not-calibrated");
   }
 
-  const displacementResult = calculateArmDisplacement(input.calibration, currentArm);
+  const displacementResult = calculateArmDisplacement(
+    input.calibration,
+    currentArm
+  );
   if (!displacementResult.available) {
     return createPositionFailure(
       displacementResult.reason === "arm-unavailable"
         ? "arm-unavailable"
-        : "not-calibrated",
+        : "not-calibrated"
     );
   }
   if (!isFiniteDisplacement(displacementResult.displacement)) {
@@ -82,7 +82,7 @@ export const mapTeleopPosition: MapTeleopPosition = (input) => {
 
   const workspaceResult = input.workspace.mapDisplacement(
     input.side,
-    displacementResult.displacement,
+    displacementResult.displacement
   );
   if (!workspaceResult.ok) return createPositionFailure("workspace-invalid");
   if (!isFinitePosition(workspaceResult.position)) {

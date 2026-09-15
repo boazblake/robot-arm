@@ -1,6 +1,7 @@
 import { cameraService } from "./camera.service";
 import { holisticService } from "./holistic.service";
 import { renderService } from "./render.service";
+import { resetTrackingPipeline } from "./tracking-pipeline";
 import { startupError, state, tracking, transition } from "./store";
 
 type StartTracking = () => Promise<void>;
@@ -50,6 +51,7 @@ const startTracking: StartTracking = async () => {
 
 const pauseTracking = (): void => {
   holisticService.stopFrameLoop();
+  resetTrackingPipeline();
   tracking.paused(true);
 };
 
