@@ -33,15 +33,18 @@ readiness/control transition `enabled -> disabled`. No new target reaches the
 adapter and no physical adapter stop is requested yet.
 
 When an arm becomes lost, the orchestrator disables control for both arms and
-requests a controlled global `RobotAdapter.stop`. This keeps local state aligned
-with the physical global stop. This is not BDD16 emergency stop: `ControlState`
-does not become `stopped`.
+requests a controlled global `RobotAdapter.stop`. The adapter then becomes
+locally stopped and rejects new targets until a fresh successful reconnect. This
+keeps local state aligned with the physical global stop. This is not BDD16
+emergency stop: `ControlState` does not become `stopped`.
 
 Tracking recovery after stale or lost input keeps the arm disabled, resets that
 arm's stabilization state, rebases that arm's calibration reference to the
 current HumanArm, marks input fresh, and requires explicit operator enablement.
-Rebasing is orchestration of the Requirement 10 and Requirement 15 domain outputs;
-Requirement 17 does not call adapters or perform logging.
+After a lost-input controlled stop, the adapter must also be freshly reconnected
+before either arm can transmit. Rebasing is orchestration of the Requirement 10
+and Requirement 15 domain outputs; Requirement 17 does not call adapters or
+perform logging.
 
 Intentional pause is separate from accidental tracking loss. Pause disables both
 arms, resets stabilization for both arms, stops producing tracking input, and does
@@ -176,12 +179,18 @@ Scenario: Recovery preserves independent freshness but not global stop state
   And right freshness remains "fresh"
   And right control mode remains "disabled"
 
-Scenario: The unaffected arm can be explicitly re-enabled after controlled stop
+Scenario: Controlled stop requires adapter reconnection before re-enable
   Given left input caused a global controlled stop
   And right freshness and calibration remain valid
-  And right control mode is "disabled"
+  And both control modes are "disabled"
+  And the adapter is "stopped"
   When right control is explicitly enabled
+  Then the request is rejected with reason "adapter-stopped"
+  And right control mode remains "disabled"
+  When the adapter is freshly reconnected
+  And right control is explicitly enabled again
   Then right control mode becomes "enabled"
+  And right target transmission may proceed
   And no emergency-stop clearing is required
 
 Scenario: Intentional pause is not accidental tracking loss

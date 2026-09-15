@@ -19,9 +19,8 @@ export default defineConfig(({ mode }) => {
   const alias: Record<string, string> = {
     "@": path.resolve(__dirname, "./src"),
     "@components": path.resolve(__dirname, "./src/shared/components"),
-    "@pages": path.resolve(__dirname, "./src/features"),
-    "@utils": path.resolve(__dirname, "./src/shared/utils"),
-    "@types": path.resolve(__dirname, "./src/types"),
+    "@pages": path.resolve(__dirname, "./src/app"),
+    "@types": path.resolve(__dirname, "./src/app/model"),
   };
 
   // When not building for mobile, we replace the native plugin definition
@@ -31,7 +30,7 @@ export default defineConfig(({ mode }) => {
       __dirname,
       "./src/shims/capacitor-media-pipe.ts"
     );
-    alias["@/pages/Pose/media-pipe"] = webMediaPipeShim;
+    alias["@/tracking/adapters/mediapipe/media-pipe"] = webMediaPipeShim;
     alias["capacitor-media-pipe"] = webMediaPipeShim;
   }
 

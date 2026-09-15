@@ -1,8 +1,8 @@
 import m from "mithril";
 import routes from "./routes";
 import { getRoutePrefix } from "./routePrefix";
-import model from "../model";
-import type { Model, DisplayType } from "../types";
+import model from "./model/model";
+import type { Model, DisplayType } from "./model/types";
 import "setimmediate";
 
 /* Core CSS required for Ionic components to work properly */

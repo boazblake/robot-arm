@@ -1,7 +1,11 @@
-# Robot Arm architecture
+# Architecture
 
-Camera input is handled by `src/features/tracking/camera.service.ts`. Platform-specific MediaPipe inference lives in `src/features/tracking/holistic.service.ts` and the native plugin adapter lives beside it. Results cross into application code only through `src/integration/normalize.ts` as `TrackingFrame` from `src/domain/tracking.ts`.
+LiftMate is organized by domain ownership. Camera access lives under `src/camera`,
+MediaPipe normalization and inference under `src/tracking/adapters/mediapipe`, and
+normalized human observations under `src/tracking/model`. Teleoperation policies are
+under `src/teleoperation`; robot intent and ports are under `src/robotics`.
 
-Rendering is isolated in `src/features/tracking/render.service.ts`. Deterministic geometry is in `src/domain/geometry.ts`; it has no camera, UI, or platform dependencies.
-
-Future stages—`HumanArmPose`, `RobotMapper`, `RobotTarget`, and simulator/physical robot—are intentionally not implemented.
+Application session orchestration composes these boundaries under `src/app/session`.
+Rendering consumes prepared output from `src/rendering`, while diagnostic HUD code
+lives under `src/app/hud`. Generic mathematical primitives are isolated under
+`src/shared/geometry`.

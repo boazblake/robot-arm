@@ -1,0 +1,158 @@
+.tracking,
+.tracking-viewer {
+  height: 100%;
+  min-height: 420px;
+}
+
+.tracking-viewer {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+}
+
+.tracking-viewer video,
+.tracking-viewer canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tracking-viewer.preview-contain video,
+.tracking-viewer.preview-contain canvas { object-fit: contain; }
+.tracking-viewer.web-camera-front video,
+.tracking-viewer.web-camera-front canvas { transform: scaleX(-1); }
+.tracking-viewer canvas { z-index: 2; pointer-events: none; }
+
+.tracking-toolbar {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: white;
+  background: #111b;
+  padding: 8px;
+  border-radius: 8px;
+}
+.tracking-toolbar span { margin-left: auto; }
+
+.tracking-hud {
+  position: absolute;
+  z-index: 3;
+  inset: 58px 10px 10px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  color: #f8fafc;
+  pointer-events: none;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-shadow: 0 1px 2px #000;
+}
+
+.calibration-overlay {
+  position: absolute;
+  z-index: 0;
+  inset: -58px -10px -10px;
+  width: calc(100% + 20px);
+  height: calc(100% + 68px);
+  pointer-events: none;
+}
+.calibration-line { stroke: #fbbf24aa; stroke-width: .004; }
+.calibration-marker { fill: none; stroke: #fbbf24; stroke-width: .004; }
+.current-anchor { fill: #fbbf24; }
+
+.hud-pipeline,
+.hud-inspector {
+  position: relative;
+  z-index: 1;
+  background: #08111de8;
+  border: 1px solid #94a3b855;
+  border-radius: 9px;
+  backdrop-filter: blur(5px);
+}
+
+.hud-pipeline {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px;
+  pointer-events: auto;
+}
+.hud-stage {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 7px;
+  color: #cbd5e1;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.hud-stage:hover,
+.hud-stage:focus-visible { border-color: #93c5fd; outline: none; }
+.hud-stage.stage-active { color: #fff; background: #2563eb99; border-color: #93c5fd; }
+.hud-stage small { font-size: 10px; }
+.hud-pipeline i { align-self: center; color: #64748b; font-style: normal; }
+.stage-ready { color: #86efac; }
+.stage-idle { color: #94a3b8; }
+
+.hud-inspector {
+  align-self: end;
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: 16px;
+  pointer-events: auto;
+}
+.hud-inspector-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #94a3b855;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+.hud-inspector-header h2 { margin: 0; font-size: 18px; letter-spacing: .08em; }
+.hud-kicker { display: block; color: #93c5fd; font-size: 10px; letter-spacing: .12em; }
+.hud-help { color: #cbd5e1; font-size: 11px; }
+.hud-calibration-grid-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hud-calibration-card { border: 1px solid #94a3b844; border-radius: 7px; padding: 12px; background: #0f1b2dcc; }
+.hud-calibration-card header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 16px; }
+.hud-calibration-grid { display: grid; gap: 8px; }
+.hud-calibration-grid span { display: flex; justify-content: space-between; gap: 12px; color: #cbd5e1; }
+.hud-calibration-grid b { color: #f8fafc; font-weight: 600; }
+.hud-calibration-grid code { color: #bfdbfe; }
+.hud-calibration-actions { display: flex; gap: 8px; margin-top: 14px; }
+.hud-calibration-actions ion-button { margin: 0; }
+.hud-observe-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.hud-observe-grid > div { display: flex; justify-content: space-between; border: 1px solid #94a3b844; padding: 10px; border-radius: 6px; }
+.hud-ok { color: #86efac; }
+.hud-muted { color: #cbd5e1; }
+
+@media (max-width: 700px) {
+  .tracking-hud { inset: 54px 6px 6px; overflow: auto; font-size: 10px; }
+  .hud-pipeline { justify-content: flex-start; overflow-x: auto; }
+  .hud-stage { flex: 0 0 auto; padding: 4px; }
+  .hud-pipeline i { display: none; }
+  .hud-inspector { padding: 10px; }
+  .hud-calibration-grid-columns { grid-template-columns: 1fr; }
+  .hud-calibration-card { padding: 9px; }
+  .tracking-toolbar { gap: 5px; font-size: 11px; }
+  .tracking-toolbar span { display: none; }
+}
+
+.tracking-error {
+  position: absolute;
+  z-index: 4;
+  bottom: 12px;
+  left: 12px;
+  color: #fecaca;
+}
