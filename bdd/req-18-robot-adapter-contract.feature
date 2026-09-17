@@ -332,3 +332,43 @@ Scenario: Adapter does not retry movement commands
   When the adapter returns the failure
   Then it does not silently retry
   And BDD19 owns later delivery behavior
+
+# BDD19 transport-port amendment
+
+BDD18 consumes the low-level synchronous target transport port. BDD19 may provide
+an implementation backed by its live WebSocket stream. BDD18 remains responsible
+for RobotTarget validation, RobotCommand construction, robot-specific translation,
+and mapping transport failures into the adapter contract.
+
+  RobotCommand = RobotTarget
+
+  TransportTargetResult =
+    { ok: true, sequence: number }
+    | { ok: false, reason:
+        "not-connected" | "target-invalid" | "message-too-large" |
+        "backpressure" | "serialization-failed" | "transport-failed" }
+
+  TransportStopResult =
+    { ok: true, status: "acknowledged" }
+    | { ok: false, reason:
+        "not-connected" | "closing" | "transport-failed" | "timeout" |
+        "remote-rejected" | "delivery-unknown" }
+
+  RobotTransport = {
+    connect(): Promise<TransportConnectResult>
+    disconnect(): Promise<TransportDisconnectResult>
+    send(command: RobotCommand): TransportTargetResult
+    stop(): Promise<TransportStopResult>
+  }
+
+Scenario: BDD19 transport target results map without exposing WebSocket details
+  Given BDD18 sends a translated RobotCommand through RobotTransport
+  When BDD19 returns a transport result
+  Then BDD18 maps only the stable transport failure categories it owns
+  And WebSocket status, buffering, serialization, and delivery details do not escape as adapter events
+
+Scenario: BDD19 target transmission does not wait for remote adapter acceptance
+  Given RobotTransport.send returns successful transmission
+  When the remote adapter later accepts or rejects the command
+  Then BDD18 does not treat that later telemetry as a second send result
+  And BDD19 owns the live adapter-error telemetry boundary

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createRobotTarget } from "../model/robot-target";
-import { createRobotAdapter, type RobotTransport } from "./robot-adapter";
+import { createRobotAdapter, type RobotTransport, type TransportConnectResult, type TransportDisconnectResult, type TransportTargetResult } from "./robot-adapter";
 
 const target = (sequence = 1, options: { orientation?: boolean; gripper?: "open" | "close" } = {}) => {
   const result = createRobotTarget({
@@ -28,7 +28,7 @@ const deferred = <T,>() => {
 const transportWith = (overrides: Partial<RobotTransport> = {}): RobotTransport => ({
   connect: vi.fn().mockResolvedValue({ ok: true }),
   disconnect: vi.fn().mockResolvedValue({ ok: true }),
-  send: vi.fn().mockResolvedValue({ ok: true }),
+  send: vi.fn().mockReturnValue({ ok: true }),
   stop: vi.fn().mockResolvedValue({ ok: true }),
   ...overrides,
 });
@@ -64,7 +64,7 @@ describe("RobotAdapter", () => {
   });
 
   it("uses the injected freshness policy and does not retry writes", async () => {
-    const transport = transportWith({ send: vi.fn().mockRejectedValue(new Error("deadline exceeded")) });
+    const transport = transportWith({ send: vi.fn(() => { throw new Error("deadline exceeded"); }) });
     const adapter = createRobotAdapter({ transport, freshnessPolicy: () => "stale" });
     await adapter.connect();
 
@@ -108,7 +108,7 @@ describe("RobotAdapter", () => {
     const translating = createRobotAdapter({
       transport,
       freshnessPolicy: () => "fresh",
-      translateTarget: () => null,
+      translateTarget: () => { throw new Error("unsafe translation"); },
     });
     await translating.connect();
     expect(await translating.sendTarget(target(5))).toEqual({ ok: false, reason: "translation-failed" });
@@ -124,7 +124,7 @@ describe("RobotAdapter", () => {
     const transport = transportWith({ send: vi.fn().mockResolvedValue({ ok: false, reason: "robot-rejected" }) });
     const adapter = createRobotAdapter({ transport, freshnessPolicy: () => "fresh", observer });
     await expect(adapter.connect()).resolves.toEqual({ ok: true, status: "connected" });
-    await expect(adapter.sendTarget(target(9))).resolves.toEqual({ ok: false, reason: "robot-rejected" });
+    await expect(adapter.sendTarget(target(9))).resolves.toEqual({ ok: false, reason: "transport-failed" });
     expect(observer).toHaveBeenCalled();
   });
 
@@ -146,27 +146,27 @@ describe("RobotAdapter", () => {
   });
 
   it("exposes connecting and disconnecting only while those operations execute", async () => {
-    const connection = deferred<unknown>();
-    const cleanup = deferred<unknown>();
+    const connection = deferred<TransportConnectResult>();
+    const cleanup = deferred<TransportDisconnectResult>();
     const transport = transportWith({ connect: vi.fn(() => connection.promise), disconnect: vi.fn(() => cleanup.promise) });
     const adapter = createRobotAdapter({ transport, freshnessPolicy: () => "fresh" });
 
     const connecting = adapter.connect();
     await Promise.resolve();
     expect(adapter.status()).toBe("connecting");
-    connection.resolve({ ok: true });
+    connection.resolve({ ok: true, status: "connected" });
     await connecting;
 
     const disconnecting = adapter.disconnect();
     await Promise.resolve();
     expect(adapter.status()).toBe("disconnecting");
-    cleanup.resolve({ ok: true });
+    cleanup.resolve({ ok: true, status: "disconnected" });
     await disconnecting;
   });
 
   it("maps send and stop transport failures without retrying", async () => {
     const transport = transportWith({
-      send: vi.fn().mockRejectedValue(new Error("write failed")),
+      send: vi.fn(() => { throw new Error("write failed"); }),
       stop: vi.fn().mockResolvedValue({ ok: false, reason: "timeout" }),
     });
     const adapter = createRobotAdapter({ transport, freshnessPolicy: () => "fresh" });
@@ -178,7 +178,7 @@ describe("RobotAdapter", () => {
   });
 
   it("rejects targets during disconnect and preserves stop event order", async () => {
-    const cleanup = deferred<unknown>();
+    const cleanup = deferred<TransportDisconnectResult>();
     const events: unknown[] = [];
     const transport = transportWith({ disconnect: vi.fn(() => cleanup.promise) });
     const adapter = createRobotAdapter({ transport, freshnessPolicy: () => "fresh", observer: (event) => events.push(event) });
@@ -187,7 +187,7 @@ describe("RobotAdapter", () => {
     await Promise.resolve();
     const rejectedDuringDisconnect = adapter.sendTarget(target(22));
     expect(transport.send).not.toHaveBeenCalled();
-    cleanup.resolve({ ok: true });
+    cleanup.resolve({ ok: true, status: "disconnected" });
     await disconnecting;
     await expect(rejectedDuringDisconnect).resolves.toEqual({ ok: false, reason: "not-connected" });
 
@@ -203,20 +203,20 @@ describe("RobotAdapter", () => {
   });
 
   it("waits for lifecycle operations before evaluating stop", async () => {
-    const connection = deferred<unknown>();
-    const cleanup = deferred<unknown>();
+    const connection = deferred<TransportConnectResult>();
+    const cleanup = deferred<TransportDisconnectResult>();
     const transport = transportWith({ connect: vi.fn(() => connection.promise), disconnect: vi.fn(() => cleanup.promise) });
     const adapter = createRobotAdapter({ transport, freshnessPolicy: () => "fresh" });
 
     const connecting = adapter.connect();
     const stoppingAfterConnect = adapter.stop();
-    connection.resolve({ ok: true });
+    connection.resolve({ ok: true, status: "connected" });
     await connecting;
     await expect(stoppingAfterConnect).resolves.toEqual({ ok: true, status: "stop-request-accepted" });
 
     const disconnecting = adapter.disconnect();
     const stoppingAfterDisconnect = adapter.stop();
-    cleanup.resolve({ ok: true });
+    cleanup.resolve({ ok: true, status: "disconnected" });
     await disconnecting;
     await expect(stoppingAfterDisconnect).resolves.toEqual({ ok: false, reason: "not-connected" });
   });
@@ -232,11 +232,10 @@ describe("RobotAdapter", () => {
   });
 
   it("serializes send before a later disconnect", async () => {
-    const write = deferred<unknown>();
     const order: string[] = [];
     const transport = transportWith({
-      send: vi.fn(() => { order.push("send"); return write.promise; }),
-      disconnect: vi.fn(async () => { order.push("disconnect"); return { ok: true }; }),
+      send: vi.fn(() => { order.push("send"); return { ok: true, sequence: 1 } satisfies TransportTargetResult; }),
+      disconnect: vi.fn(async () => { order.push("disconnect"); return { ok: true, status: "disconnected" } satisfies TransportDisconnectResult; }),
     });
     const adapter = createRobotAdapter({ transport, freshnessPolicy: () => "fresh" });
     await adapter.connect();
@@ -245,7 +244,6 @@ describe("RobotAdapter", () => {
     await Promise.resolve();
     expect(order).toEqual(["send"]);
     expect(adapter.status()).toBe("connected");
-    write.resolve({ ok: true });
     await sending;
     await disconnecting;
     expect(order).toEqual(["send", "disconnect"]);

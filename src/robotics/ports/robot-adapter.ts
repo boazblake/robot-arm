@@ -33,14 +33,27 @@ export type RobotAdapterCapabilities = Readonly<{
   readonly gripper: boolean;
 }>;
 export type TargetFreshnessPolicy = (target: RobotTarget) => "fresh" | "stale";
+export type RobotCommand = RobotTarget;
+export type TransportConnectResult =
+  | Readonly<{ ok: true; status: "connected" }>
+  | Readonly<{ ok: false; reason: "unauthorized" | "forbidden" | "authentication-expired" | "origin-rejected" | "timeout" | "transport-failed" | "cancelled" }>;
+export type TransportDisconnectResult =
+  | Readonly<{ ok: true; status: "disconnected" }>
+  | Readonly<{ ok: false; reason: "transport-failed" }>;
+export type TransportTargetResult =
+  | Readonly<{ ok: true; sequence: number }>
+  | Readonly<{ ok: false; reason: "not-connected" | "target-invalid" | "message-too-large" | "backpressure" | "serialization-failed" | "transport-failed" }>;
+export type TransportStopResult =
+  | Readonly<{ ok: true; status: "acknowledged" }>
+  | Readonly<{ ok: false; reason: "not-connected" | "closing" | "transport-failed" | "timeout" | "remote-rejected" | "delivery-unknown" }>;
 export type RobotTransport = Readonly<{
-  readonly connect: () => Promise<unknown>;
-  readonly disconnect: () => Promise<unknown>;
-  readonly send: (command: unknown) => Promise<unknown>;
-  readonly stop: () => Promise<unknown>;
+  readonly connect: () => Promise<TransportConnectResult>;
+  readonly disconnect: () => Promise<TransportDisconnectResult>;
+  readonly send: (command: RobotCommand) => TransportTargetResult;
+  readonly stop: () => Promise<TransportStopResult>;
 }>;
 export type RobotAdapterObserver = (event: RobotAdapterEvent) => void;
-export type RobotTargetTranslator = (target: RobotTarget) => unknown;
+export type RobotTargetTranslator = (target: RobotTarget) => RobotCommand;
 export type CreateRobotAdapterOptions = Readonly<{
   readonly transport: RobotTransport;
   readonly freshnessPolicy: TargetFreshnessPolicy;
@@ -170,7 +183,7 @@ export const createRobotAdapter = (options: CreateRobotAdapterOptions): RobotAda
     if (options.freshnessPolicy(validated) === "stale") return rejected("target-stale", validated.sequence);
     if (validated.orientation !== undefined && !capabilities.orientation) return rejected("unsupported-intent", validated.sequence);
     if (validated.gripper !== undefined && !capabilities.gripper) return rejected("unsupported-intent", validated.sequence);
-    let command: unknown;
+    let command: RobotCommand;
     try {
       command = options.translateTarget === undefined ? validated : options.translateTarget(validated);
       if (options.translateTarget !== undefined && (command === undefined || command === null)) {
@@ -178,8 +191,15 @@ export const createRobotAdapter = (options: CreateRobotAdapterOptions): RobotAda
       }
     } catch { return rejected("translation-failed", validated.sequence); }
     try {
-      const response = await options.transport.send(command);
-      if (!transportSucceeded(response)) throw response;
+      const response = options.transport.send(command as RobotCommand);
+      if (!response.ok) {
+        const reason: SendTargetFailure = response.reason === "target-invalid"
+          ? "target-invalid"
+          : response.reason === "not-connected"
+            ? "not-connected"
+            : "transport-failed";
+        return rejected(reason, validated.sequence);
+      }
       observe({ type: "target-accepted", sequence: validated.sequence });
       return Object.freeze({ ok: true, status: "accepted" });
     } catch (error) {
@@ -198,9 +218,19 @@ export const createRobotAdapter = (options: CreateRobotAdapterOptions): RobotAda
       observe({ type: "stop-requested" });
       try {
         const response = await options.transport.stop();
-        if (!transportSucceeded(response)) throw response;
-        observe({ type: "stop-accepted" });
-        return Object.freeze({ ok: true, status: "stop-request-accepted" as const });
+        if (response.ok) {
+          observe({ type: "stop-accepted" });
+          return Object.freeze({ ok: true, status: "stop-request-accepted" as const });
+        }
+        const reason: StopFailure = response.reason === "remote-rejected"
+          ? "robot-rejected"
+          : response.reason === "timeout"
+            ? "timeout"
+            : response.reason === "not-connected"
+              ? "not-connected"
+              : "transport-failed";
+        observe({ type: "stop-failed", reason });
+        return Object.freeze({ ok: false, reason });
       } catch (error) {
         const reason = failureFrom(error, "transport-failed");
         observe({ type: "stop-failed", reason });
