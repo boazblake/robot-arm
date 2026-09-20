@@ -1,14 +1,8 @@
 import Stream from "mithril/stream";
 import { angle } from "../../shared/geometry/geometry";
-import { rotateIntoPreviewFrame } from "../../shared/geometry/rotation";
-import {
-  buildCanonicalHumanScene,
-  calibratedDisplacement,
-  type CanonicalHumanScene,
-  type CanonicalHumanSpace,
-} from "../../tracking/model/canonical-coordinate-pipeline";
 import {
   calibrateArm,
+  calculateArmDisplacement,
   type ArmCalibration,
   type ArmSide,
   type CalibrationState,
@@ -23,6 +17,7 @@ import {
   type InputFreshnessState,
 } from "../../teleoperation/freshness/input-freshness";
 import { createRobotTarget, type RobotTarget } from "../../robotics/model/robot-target";
+import { mapTeleopPosition, type TeleopPositionResult } from "../../teleoperation/mapping/teleop-mapper";
 import {
   createStabilizationConfig,
   createStabilizationState,
@@ -42,7 +37,6 @@ import {
   type TrackingValidity,
 } from "../../tracking/validity/tracking-validity";
 import type { Landmark, TrackingFrame } from "../../tracking/model/tracking-frame";
-import { isFrontCamera, previewRotationDegrees } from "./store";
 
 const requiredVisibility = (frame: TrackingFrame, side: ArmSide): readonly (Landmark | null)[] => {
   const pose = frame.poseLandmarks;
@@ -64,9 +58,6 @@ export type ArmPipelineSnapshot = Readonly<{
   readonly shoulderAngle: number | null;
   readonly visibility: readonly (Landmark | null)[];
   readonly trail: readonly WorkspacePosition[];
-  readonly canonical: CanonicalHumanSpace | null;
-  readonly neutral: CanonicalHumanSpace | null;
-  readonly uiFrameDisplacement: { readonly x: number; readonly y: number; readonly z: number } | null;
 }>;
 
 export type TrackingPipelineSnapshot = Readonly<{
@@ -77,7 +68,6 @@ export type TrackingPipelineSnapshot = Readonly<{
   readonly calibration: CalibrationState;
   readonly stabilization: StabilizationConfig;
   readonly arms: Readonly<{ readonly left: ArmPipelineSnapshot; readonly right: ArmPipelineSnapshot }>;
-  readonly humanFrame: CanonicalHumanScene;
 }>;
 
 const validPolicy = createTrackingConfidencePolicy(0.5, "accept");
@@ -91,12 +81,6 @@ const validStabilization = createStabilizationConfig({
   deadZone: { x: 0.03, y: 0.03, z: 0.03 },
 });
 const validFreshness = createFreshnessConfig();
-type CoordinateRotation = (displacement: { readonly x: number; readonly y: number; readonly z: number }) => { readonly x: number; readonly y: number; readonly z: number };
-const coordinateRotation: CoordinateRotation = (displacement) => {
-  const transformed = rotateIntoPreviewFrame(previewRotationDegrees(), displacement);
-  const x = isFrontCamera() === "web-camera-front" ? -transformed.x : transformed.x;
-  return Object.freeze({ x, y: transformed.y, z: transformed.z });
-};
 if (!validPolicy.ok || !validMapping.ok || !validStabilization.ok || !validFreshness.ok) {
   throw new Error("Invalid tracking pipeline defaults");
 }
@@ -104,7 +88,6 @@ if (!validPolicy.ok || !validMapping.ok || !validStabilization.ok || !validFresh
 const emptyFrame: TrackingFrame = Object.freeze({
   timestamp: 0,
   poseLandmarks: [],
-  poseWorldLandmarks: [],
   leftHandLandmarks: [],
   rightHandLandmarks: [],
   faceLandmarks: [],
@@ -124,9 +107,6 @@ const emptyArm = (validity: ArmTrackingValidity, visibility: readonly (Landmark 
     shoulderAngle: null,
     visibility,
     trail: [],
-    canonical: null,
-    neutral: null,
-    uiFrameDisplacement: null,
   });
 
 const initialValidity: TrackingValidity = Object.freeze({
@@ -145,13 +125,11 @@ const initialSnapshot: TrackingPipelineSnapshot = Object.freeze({
     left: emptyArm(initialValidity.left, []),
     right: emptyArm(initialValidity.right, []),
   }),
-  humanFrame: buildCanonicalHumanScene(emptyFrame),
 });
 
 export const pipeline = Stream<TrackingPipelineSnapshot>(initialSnapshot);
 
 let calibration: CalibrationState = Object.freeze({ left: null, right: null });
-let canonicalNeutral: Readonly<{ readonly left: CanonicalHumanSpace | null; readonly right: CanonicalHumanSpace | null }> = Object.freeze({ left: null, right: null });
 let stabilizationState: StabilizationState = createStabilizationState();
 let freshnessState: InputFreshnessState = createInputFreshnessState();
 let sequence = 0;
@@ -162,8 +140,20 @@ const readCalibration = (side: ArmSide): ArmCalibration | null =>
 const readArm = (pose: HumanArmPose, side: ArmSide): HumanArm | null =>
   side === "left" ? pose.left : pose.right;
 
-type ResetRecoveredArmStabilization = (side: ArmSide) => void;
-const resetRecoveredArmStabilization: ResetRecoveredArmStabilization = (side) => {
+type RebaseRecoveredArm = (pose: HumanArmPose, side: ArmSide) => void;
+const rebaseRecoveredArm: RebaseRecoveredArm = (pose, side) => {
+  const current = readArm(pose, side);
+  if (current === null) return;
+  const reference = Object.freeze({
+    shoulder: Object.freeze({ ...current.shoulder }),
+    elbow: Object.freeze({ ...current.elbow }),
+    wrist: Object.freeze({ ...current.wrist }),
+    handAnchor: Object.freeze({ ...current.handAnchor }),
+  });
+  const nextCalibration = Object.freeze({ side, timestamp: pose.timestamp, reference });
+  calibration = Object.freeze(side === "left"
+    ? { left: nextCalibration, right: calibration.right }
+    : { left: calibration.left, right: nextCalibration });
   stabilizationState = Object.freeze(side === "left"
     ? { left: null, right: stabilizationState.right }
     : { left: stabilizationState.left, right: null });
@@ -178,22 +168,20 @@ const makeArmSnapshot = (
   mapping: WorkspaceMapping,
   stabilization: StabilizationConfig,
   previousTrail: readonly WorkspacePosition[],
-  scene: CanonicalHumanScene,
 ): ArmPipelineSnapshot => {
   const currentArm = readArm(pose, side);
-  const canonicalArm = side === "left" ? scene.arms.left : scene.arms.right;
   const armValidity = side === "left" ? validity.left : validity.right;
   const visibility = requiredVisibility(frame, side);
-  if (currentArm === null || canonicalArm === null || !armValidity.valid) return emptyArm(armValidity, visibility);
+  if (currentArm === null) return emptyArm(armValidity, visibility);
 
-  const neutral = side === "left" ? canonicalNeutral.left : canonicalNeutral.right;
-  const displacement = neutral === null || canonicalArm.hand === null
-    ? Object.freeze({ available: false as const, reason: neutral === null ? "not-calibrated" as const : "arm-unavailable" as const })
-    : Object.freeze({ available: true as const, displacement: calibratedDisplacement(canonicalArm.hand.palm, neutral) });
-  const uiDisplacement = displacement.available ? coordinateRotation(displacement.displacement) : null;
-  const mappedResult = uiDisplacement === null
-    ? Object.freeze({ ok: false as const, reason: "not-calibrated" as const })
-    : mapping.mapDisplacement(side, uiDisplacement);
+  const displacement = calculateArmDisplacement(readCalibration(side), currentArm);
+  const mappedResult: TeleopPositionResult = mapTeleopPosition({
+    side,
+    pose,
+    calibration: readCalibration(side),
+    validity: armValidity,
+    workspace: mapping,
+  });
   const mapped = mappedResult.ok ? mappedResult.position : null;
   let stabilized: WorkspacePosition | null = null;
   if (mapped !== null) {
@@ -219,9 +207,6 @@ const makeArmSnapshot = (
     mapped,
     stabilized,
     target: targetConstruction?.ok ? targetConstruction.target : null,
-    canonical: canonicalArm.hand?.palm ?? null,
-    neutral,
-    uiFrameDisplacement: uiDisplacement,
     elbowAngle: angle(currentArm.shoulder, currentArm.elbow, currentArm.wrist),
     shoulderAngle: angle(currentArm.elbow, currentArm.shoulder, currentArm.handAnchor),
     visibility,
@@ -232,7 +217,6 @@ const makeArmSnapshot = (
 type ProcessTrackingFrame = (frame: TrackingFrame) => TrackingPipelineSnapshot;
 export const processTrackingFrame: ProcessTrackingFrame = (frame) => {
   const pose = createHumanArmPose(frame);
-  const humanFrame = buildCanonicalHumanScene(frame);
   const validity = evaluateTrackingValidity(frame, pose, validPolicy.policy);
   const previous = pipeline();
   const now = performance.now();
@@ -252,8 +236,8 @@ export const processTrackingFrame: ProcessTrackingFrame = (frame) => {
     validFreshness.config,
   );
   freshnessState = rightUpdate.state;
-  if (leftUpdate.events.includes("tracking-recovered")) resetRecoveredArmStabilization("left");
-  if (rightUpdate.events.includes("tracking-recovered")) resetRecoveredArmStabilization("right");
+  if (leftUpdate.events.includes("tracking-recovered")) rebaseRecoveredArm(pose, "left");
+  if (rightUpdate.events.includes("tracking-recovered")) rebaseRecoveredArm(pose, "right");
   const next = Object.freeze({
     frame,
     pose,
@@ -262,10 +246,9 @@ export const processTrackingFrame: ProcessTrackingFrame = (frame) => {
     calibration,
     stabilization: validStabilization.config,
     arms: Object.freeze({
-      left: makeArmSnapshot(frame, pose, validity, freshnessState.left.status, "left", validMapping.mapping, validStabilization.config, previous.arms.left.trail, humanFrame),
-      right: makeArmSnapshot(frame, pose, validity, freshnessState.right.status, "right", validMapping.mapping, validStabilization.config, previous.arms.right.trail, humanFrame),
+      left: makeArmSnapshot(frame, pose, validity, freshnessState.left.status, "left", validMapping.mapping, validStabilization.config, previous.arms.left.trail),
+      right: makeArmSnapshot(frame, pose, validity, freshnessState.right.status, "right", validMapping.mapping, validStabilization.config, previous.arms.right.trail),
     }),
-    humanFrame,
   });
   pipeline(next);
   return next;
@@ -281,28 +264,15 @@ const setCalibrationForSide = (side: ArmSide, value: ArmCalibration | null): voi
 
 export const calibrateTrackingArm = (side: ArmSide): void => {
   const result = calibrateArm(pipeline().pose, side, false);
-  const canonicalArm = side === "left" ? pipeline().humanFrame.arms.left : pipeline().humanFrame.arms.right;
-  if (!result.ok || canonicalArm === null || canonicalArm.hand === null) return;
-  {
-    setCalibrationForSide(side, result.calibration);
-    canonicalNeutral = Object.freeze(side === "left"
-      ? { left: canonicalArm.hand.palm, right: canonicalNeutral.right }
-      : { left: canonicalNeutral.left, right: canonicalArm.hand.palm });
-    processTrackingFrame(pipeline().frame);
-  }
+  if (result.ok) setCalibrationForSide(side, result.calibration);
 };
 
 export const resetTrackingArmCalibration = (side: ArmSide): void => {
   setCalibrationForSide(side, null);
-  canonicalNeutral = Object.freeze(side === "left"
-    ? { left: null, right: canonicalNeutral.right }
-    : { left: canonicalNeutral.left, right: null });
-  processTrackingFrame(pipeline().frame);
 };
 
 export const resetTrackingPipeline = (): void => {
   calibration = Object.freeze({ left: null, right: null });
-  canonicalNeutral = Object.freeze({ left: null, right: null });
   stabilizationState = createStabilizationState();
   freshnessState = createInputFreshnessState();
   sequence = 0;
