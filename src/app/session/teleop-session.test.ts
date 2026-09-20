@@ -17,7 +17,7 @@ const frame = (offset = 0): TrackingFrame => {
   const poseLandmarks = Array.from({ length: 17 }, () => landmark(0, 0, 0));
   poseLandmarks[11] = landmark(0, 0, 0);
   poseLandmarks[13] = landmark(0.1, 0, 0);
-  poseLandmarks[15] = landmark(0.1, 0.1, 0);
+  poseLandmarks[15] = landmark(0.1 + offset, 0.1, 0);
   poseLandmarks[12] = landmark(0, 0, 0);
   poseLandmarks[14] = landmark(-0.1, 0, 0);
   poseLandmarks[16] = landmark(-0.1, 0.1, 0);
@@ -42,7 +42,7 @@ describe("tracking pipeline presentation snapshot", () => {
     const expected = calculateArmDisplacement(snapshot.calibration.left, pose.left);
 
     expect(snapshot.arms.left.displacement).toEqual(expected);
-    expect(snapshot.arms.left.mapped).toEqual({ x: 0.2, y: 0, z: 0 });
+    expect(snapshot.arms.left.mapped).toEqual({ x: -0.2, y: 0, z: 0 });
     expect(snapshot.arms.left.stabilized).not.toBeNull();
     expect(snapshot.arms.left.target?.sourceTimestamp).toBe(second.timestamp);
   });

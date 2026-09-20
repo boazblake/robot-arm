@@ -1,7 +1,11 @@
-import { comparison, diagnosticPoseWorldAngle, diagnosticPoseWorldSource, elements, features, previewFit, previewRotationDegrees, tracking } from "../app/session/store";
+import { comparison, diagnosticPoseWorldAngle, diagnosticPoseWorldSource, elements, features, isFrontCamera, previewFit, previewRotationDegrees, tracking } from "../app/session/store";
 import { orthographicProject, rotatePoseWorld, poseHipCenter, type Point3D as WorldPoint3D } from "../tracking/model/pose-world-diagnostic";
-import { alignHandDepthToPose } from "../shared/geometry/preview-depth";
 import { rotatePreviewMesh, rotatePreviewPoint } from "../shared/geometry/preview-point";
+import {
+  buildCanonicalHumanScene,
+  projectHumanPoint,
+  type CanonicalHumanScene,
+} from "../tracking/model/canonical-coordinate-pipeline";
 import type { TrackingFrame } from "../tracking/model/tracking-frame";
 
 const poseConnections: readonly [number, number][] = [
@@ -220,6 +224,40 @@ export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
   }
 };
 
+type CanonicalPreviewMapper = (
+  canvas: HTMLCanvasElement,
+  video: HTMLVideoElement | null,
+  fit: "cover" | "contain",
+  scene: CanonicalHumanScene,
+  rotationDegrees: number,
+) => (point: Point3D) => CanvasPoint;
+const canonicalPreviewMapper: CanonicalPreviewMapper = (canvas, video, fit, scene, rotationDegrees) => {
+  const rect = videoRenderRect(canvas, video, fit);
+  const camera = isFrontCamera() === "web-camera-front" ? "front" : "rear";
+  return (point) => {
+    const projected = projectHumanPoint(scene, point, { rotationDegrees, camera }, 4);
+    return {
+      x: rect.offsetX + projected.x * rect.width,
+      y: rect.offsetY + projected.y * rect.height,
+    };
+  };
+};
+
+type DrawCanonicalPreviewFrame = (
+  ctx: CanvasRenderingContext2D,
+  scene: CanonicalHumanScene,
+  flags: RenderFlags,
+  map: PointMapper,
+) => void;
+const drawCanonicalPreviewFrame: DrawCanonicalPreviewFrame = (ctx, scene, flags, map) => {
+  if (flags.pose) drawPose(ctx, scene.body, map);
+  if (flags.hands) {
+    drawSkeleton(ctx, scene.arms.left?.visualHand?.points ?? [], "#22c55e", 2.5, map, handConnections);
+    drawSkeleton(ctx, scene.arms.right?.visualHand?.points ?? [], "#22c55e", 2.5, map, handConnections);
+  }
+  if (flags.face) drawPoints(ctx, scene.face, "#f8fafc", 1, map);
+};
+
 const drawVideoBackground = (context: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void => {
   const video = elements.video();
   if (!video || video.readyState < 2) return;
@@ -261,11 +299,19 @@ const startRenderLoop: StartRenderLoop = () => {
       if (frozenPose !== null) {
         drawFrozenPoseWorld(context, frozenPose, diagnosticPoseWorldAngle());
       } else {
-        drawPreviewFrame(
+        const frame = tracking.frame();
+        const scene = buildCanonicalHumanScene(frame);
+        drawCanonicalPreviewFrame(
           context,
-          alignHandDepthToPose(tracking.frame()),
+          scene,
           features(),
-          previewMapper(canvas, elements.video(), previewFit())
+          canonicalPreviewMapper(
+            canvas,
+            elements.video(),
+            previewFit(),
+            scene,
+            previewRotationDegrees(),
+          ),
         );
       }
       const comparisonCanvas = elements.comparisonCanvas();
