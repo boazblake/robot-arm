@@ -203,12 +203,17 @@ export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
   }
 };
 
+const drawVideoBackground = (context: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void => {
+  const video = elements.video();
+  if (video && video.readyState >= 2) context.drawImage(video, 0, 0, canvas.width, canvas.height);
+};
+
 const drawComparisonFrame = (canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, frame: TrackingFrame): void => {
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
   context.clearRect(0, 0, canvas.width, canvas.height);
   const video = elements.video();
-  if (video && video.readyState >= 2) context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  drawVideoBackground(context, canvas);
   drawPreviewFrame(context, frame, features(), previewMapper(canvas, video, previewFit()));
 };
 
@@ -232,6 +237,7 @@ const startRenderLoop: StartRenderLoop = () => {
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
       context.clearRect(0, 0, canvas.width, canvas.height);
+      drawVideoBackground(context, canvas);
       const frozenPose = diagnosticPoseWorldSource();
       if (frozenPose !== null) {
         drawFrozenPoseWorld(context, frozenPose, diagnosticPoseWorldAngle());
