@@ -1,7 +1,7 @@
 import { comparison, diagnosticPoseWorldAngle, diagnosticPoseWorldSource, elements, features, previewFit, previewRotationDegrees, tracking } from "../app/session/store";
 import { orthographicProject, rotatePoseWorld, poseHipCenter, type Point3D as WorldPoint3D } from "../tracking/model/pose-world-diagnostic";
 import { alignHandDepthToPose } from "../shared/geometry/preview-depth";
-import { rotatePreviewMesh, rotatePreviewPoint } from "../shared/geometry/preview-point";
+import { rotatePreviewPoint } from "../shared/geometry/preview-point";
 import type { TrackingFrame } from "../tracking/model/tracking-frame";
 
 const poseConnections: readonly [number, number][] = [
@@ -206,13 +206,8 @@ export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
     drawSkeleton(ctx, frame.rightHandLandmarks, "#22c55e", 2.5, map, handConnections);
   }
   if (flags.face) {
-    const rotatedFace = rotatePreviewMesh(frame.faceLandmarks, previewRotationDegrees());
-    const rect = videoRenderRect(ctx.canvas, elements.video(), previewFit());
-    const faceMap: PointMapper = (point) => ({
-      x: rect.offsetX + point.x * rect.width,
-      y: rect.offsetY + point.y * rect.height,
-    });
-    drawPoints(ctx, rotatedFace, "#f8fafc", 1, faceMap);
+    const faceMap = previewMapper(ctx.canvas, elements.video(), previewFit());
+    drawPoints(ctx, frame.faceLandmarks, "#f8fafc", 1, faceMap);
   }
 };
 
