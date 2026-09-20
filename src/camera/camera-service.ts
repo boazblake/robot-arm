@@ -11,7 +11,18 @@ const safeStopCamera = async () => {
   }
 };
 
-const initializeWebCamera = async () => {
+let cameraGeneration = 0;
+let currentStream: MediaStream | null = null;
+const isCurrent = (generation: number): boolean => generation === cameraGeneration;
+const stopStream = (stream: MediaStream): void => {
+  stream.getTracks().forEach((track) => track.stop());
+};
+const discardStream = (stream: MediaStream, video: HTMLVideoElement | null): void => {
+  if (video?.srcObject === stream) video.srcObject = null;
+  stopStream(stream);
+};
+
+const initializeWebCamera = async (generation: number): Promise<boolean> => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
@@ -20,27 +31,44 @@ const initializeWebCamera = async () => {
         height: { ideal: dimensions().height },
       },
     });
-
     const video = elements.video();
-    if (video) {
-      video.srcObject = stream;
-      await new Promise((resolve) =>
-        video.addEventListener("loadedmetadata", resolve, { once: true })
+    if (!isCurrent(generation)) {
+      discardStream(stream, video);
+      return false;
+    }
+    if (!video) {
+      stopStream(stream);
+      return false;
+    }
+    video.srcObject = stream;
+    try {
+      await new Promise<void>((resolve) =>
+        video.addEventListener("loadedmetadata", () => resolve(), { once: true })
       );
+      if (!isCurrent(generation)) {
+        discardStream(stream, video);
+        return false;
+      }
       await video.play();
+      if (!isCurrent(generation)) {
+        discardStream(stream, video);
+        return false;
+      }
+      currentStream = stream;
       camera.ready(true);
       return true;
+    } catch (error) {
+      discardStream(stream, video);
+      throw error;
     }
-    return false;
   } catch (error) {
     logger.error(`Web camera failed: ${String(error)}`);
     return false;
   }
 };
 
-const initializeNativeCamera = async () => {
+const initializeNativeCamera = async (generation: number): Promise<boolean> => {
   try {
-    // Try to start with more conservative options
     await CameraPreview.start({
       position: camera.position() === "front" ? "front" : "rear",
       parent: "video-feed",
@@ -52,7 +80,10 @@ const initializeNativeCamera = async () => {
       toBack: true,
       enableHighResolution: false,
     });
-
+    if (!isCurrent(generation)) {
+      await safeStopCamera();
+      return false;
+    }
     camera.ready(true);
     return true;
   } catch (error) {
@@ -62,10 +93,8 @@ const initializeNativeCamera = async () => {
 };
 
 type CameraSample = { readonly value?: string };
-
 type CaptureSample = () => Promise<CameraSample>;
-const captureSample: CaptureSample = () =>
-  CameraPreview.captureSample({ quality: 35 });
+const captureSample: CaptureSample = () => CameraPreview.captureSample({ quality: 35 });
 
 type CameraService = {
   readonly captureSample: CaptureSample;
@@ -77,41 +106,36 @@ type CameraService = {
 
 export const cameraService: CameraService = {
   captureSample,
-  initialize: async () => {
+  initialize: async (): Promise<void> => {
+    const generation = ++cameraGeneration;
     const platform = Capacitor.getPlatform();
     let success = false;
     let lastError = "Unknown camera error";
-
     if (platform === "web") {
-      success = await initializeWebCamera();
+      success = await initializeWebCamera(generation);
       if (!success) lastError = "Web camera initialization failed";
     } else {
-      // Try native camera first
-      success = await initializeNativeCamera();
+      success = await initializeNativeCamera(generation);
       if (!success) lastError = "Native camera preview initialization failed";
-
-      // If native fails, try web camera as fallback
-      if (!success) {
+      if (!success && isCurrent(generation)) {
         logger.info("Falling back to web camera implementation");
-        success = await initializeWebCamera();
-        if (!success)
-          lastError =
-            "Native and fallback web camera initialization both failed";
+        success = await initializeWebCamera(generation);
+        if (!success) lastError = "Native and fallback web camera initialization both failed";
       }
     }
-
     if (!success) throw new Error(lastError);
   },
-
-  stop: async () => {
+  stop: async (): Promise<void> => {
+    ++cameraGeneration;
+    const stream = currentStream;
+    currentStream = null;
+    if (stream) stopStream(stream);
     const platform = Capacitor.getPlatform();
-
     if (platform === "web") {
       const video = elements.video();
       if (video?.srcObject) {
-        (video.srcObject as MediaStream)
-          .getTracks()
-          .forEach((track) => track.stop());
+        const videoStream = video.srcObject as MediaStream;
+        if (videoStream !== stream) stopStream(videoStream);
         video.srcObject = null;
       }
     } else {
@@ -119,25 +143,20 @@ export const cameraService: CameraService = {
     }
     camera.ready(false);
   },
-
-  switch: async () => {
+  switch: async (): Promise<void> => {
     try {
       await cameraService.stop();
       camera.position(camera.position() === "front" ? "rear" : "front");
       await cameraService.initialize();
     } catch (error) {
       logger.error(`Camera switch failed: ${String(error)}`);
-      // The tracking session owns the tracking state transition.
     }
   },
-
-  cleanup: async () => {
+  cleanup: async (): Promise<void> => {
     try {
       await cameraService.stop();
       const video = elements.video();
-      if (video) {
-        video.srcObject = null;
-      }
+      if (video) video.srcObject = null;
       camera.ready(false);
       camera.position("front");
     } catch (error) {

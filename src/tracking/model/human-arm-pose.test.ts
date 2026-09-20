@@ -64,9 +64,9 @@ describe("HumanArmPose", () => {
       shoulder: { x: 11, y: 11.1, z: 11.2 },
       elbow: { x: 13, y: 13.1, z: 13.2 },
       wrist: { x: 15, y: 15.1, z: 15.2 },
-      handAnchor: { x: 100, y: 100.1, z: 100.2 },
+      handAnchor: { x: 15, y: 15.1, z: 15.2 },
     });
-    expect(pose.right?.handAnchor.x).toBe(200);
+    expect(pose.right?.handAnchor.x).toBe(16);
   });
 
   it("rejects non-finite required coordinates without throwing", () => {

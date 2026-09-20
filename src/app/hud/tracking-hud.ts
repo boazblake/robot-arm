@@ -12,6 +12,7 @@ import {
 type HudStage = "pose" | "cal" | "valid" | "map" | "smooth" | "target" | "control" | "fresh";
 
 let selectedStage: HudStage = "cal";
+let calibrationExpanded = false;
 
 const number = (value: number | null): string => value === null ? "—" : value.toFixed(3);
 const vector = (value: WorkspacePosition | null): string => value === null
@@ -47,10 +48,21 @@ const calibrationCard = (side: ArmSide, arm: ArmPipelineSnapshot): m.Children =>
 };
 
 const calibrationInspector = (snapshot: TrackingPipelineSnapshot): m.Children =>
-  m("section.hud-inspector hud-inspector-calibration", [
+  m(`section.hud-inspector hud-inspector-calibration ${calibrationExpanded ? "calibration-expanded" : "calibration-collapsed"}`, [
     m("header.hud-inspector-header", [
       m("div", [m("span.hud-kicker", "ACTIVE INSPECTOR"), m("h2", "CALIBRATION")]),
-      m("span.hud-help", "Capture a neutral arm reference")
+      m("div.hud-calibration-toggle", [
+        m("span.hud-help", calibrationExpanded ? "Capture a neutral arm reference" : "Hidden"),
+        m(
+          "button.hud-toggle",
+          {
+            type: "button",
+            onclick: () => { calibrationExpanded = !calibrationExpanded; },
+            "aria-expanded": calibrationExpanded,
+          },
+          calibrationExpanded ? "Minimize" : "Maximize",
+        ),
+      ]),
     ]),
     m("div.hud-calibration-grid-columns", [
       calibrationCard("left", snapshot.arms.left),
@@ -134,7 +146,7 @@ const TrackingHud: m.Component = {
     const snapshot = pipeline();
     return m("div.tracking-hud", [
       anchorOverlay(snapshot),
-      pipelineStrip(snapshot),
+      calibrationExpanded ? pipelineStrip(snapshot) : null,
       inspector(snapshot),
     ]);
   },

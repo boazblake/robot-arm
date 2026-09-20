@@ -1,89 +1,123 @@
-Feature: Requirement 20 - RobotState and feedback
+@v1
+Feature: Robot-independent observed robot state
+  Requirement 20 defines the robot-independent destination contract for observed
+  robot state. It does not translate CLR or ROS feedback.
 
-Robot feedback is represented upstream without exposing implementation-specific types.
+  Scenario: RobotState represents observed state
+    Given a valid robot-independent observation
+    When a RobotState is created
+    Then it represents observed robot state
+    And it does not represent requested RobotTarget intent
 
-Scenario: Adapter exposes robot state
-Given an external system provides current robot state
-When the adapter receives it
-Then it exposes a robot-independent RobotState
+  Scenario: RobotState uses robot-independent Cartesian coordinates
+    Given an observed Cartesian position
+    When it is represented as RobotState
+    Then the position has finite x, y, and z components
+    And the position values are preserved exactly
+    And no CLR unit or coordinate frame is exposed
+    And no workspace normalization or bounds are applied
 
-Scenario: Requested and actual state differ
-Given LiftMate requested a RobotTarget
-And the external system reports current state
-Then LiftMate does not treat requested state as actual state
+  Scenario: RobotState preserves source observation time
+    Given a valid observation with source time in epoch milliseconds
+    When a RobotState is created
+    Then observedAt preserves the source observation time
+    And observedAt is not replaced with receipt time
+    And observedAt is not used as a freshness frequency policy
 
-Scenario: Feedback contains freshness information
-When RobotState is produced
-Then its timing is sufficient to evaluate freshness
+  Scenario: Left and right observations are independently nullable
+    Given either arm observation is unavailable
+    When RobotState is created
+    Then that arm is represented by null
+    And the other arm remains independently representable
 
-Scenario: External types stop at the adapter
-When RobotState crosses upstream
-Then ROS, MoveIt, MuJoCo, and target-specific types do not cross the boundary
+  Scenario: Optional observations preserve absence
+    Given orientation is unavailable
+    When RobotState is created
+    Then orientation remains absent
+    And no orientation value is invented
 
-# Canonical RobotState contract
+  Scenario: Observed orientation uses the established quaternion convention
+    Given an observed non-zero finite quaternion
+    When RobotState is created
+    Then orientation is normalized
+    And no Euler-angle representation is introduced
 
-RobotState represents observed robot reality, not requested intent. It contains
-an epoch-millisecond observation time and independently observable left and right
-arm state. An unavailable arm is represented by null. Position uses the external
-robot's canonical units and is not constrained to the normalized RobotTarget
-range. Optional orientation is a normalized quaternion and optional gripper intent
-is either open or close. Optional properties remain absent rather than null.
+  Scenario Outline: Non-finite numeric state is rejected
+    Given observed state contains <value>
+    When RobotState validation runs
+    Then the state is rejected with a typed validation failure
 
-  RobotState = {
-    observedAt: number
-    arms: {
-      left: RobotArmState | null
-      right: RobotArmState | null
-    }
-  }
+    Examples:
+      | value     |
+      | NaN       |
+      | Infinity  |
+      | -Infinity |
 
-  RobotArmState = {
-    position: { x: number, y: number, z: number }
-    orientation?: { x: number, y: number, z: number, w: number }
-    gripper?: "open" | "close"
-  }
+  Scenario: Malformed required state is rejected without throwing
+    Given observed state is missing required arm or position structure
+    When RobotState validation runs
+    Then the state is rejected with a typed validation failure
+    And validation does not throw
 
-Scenario: RobotState validates timing and actual arm data
-  Given external feedback is untrusted
-  When RobotState is constructed
-  Then observedAt is finite and non-negative
-  And each present arm has finite position components
-  And an invalid quaternion or gripper is rejected
-  And validation does not throw
+  Scenario: Invalid orientation is rejected
+    Given an observed orientation is malformed or zero-length
+    When RobotState validation runs
+    Then the state is rejected with a typed validation failure
 
-Scenario: RobotState preserves requested-versus-actual distinction
-  Given a RobotTarget contains a requested position
-  And RobotState contains the reported actual position
-  When both cross the application boundary
-  Then RobotState does not contain RobotTarget or requested-position fields
-  And the reported position is not rewritten to match the request
+  Scenario: RobotState preserves requested-versus-observed distinction
+    Given a RobotTarget contains a requested position
+    And RobotState contains a reported observed position
+    When both cross the application boundary
+    Then RobotState does not contain RobotTarget or requested-position fields
+    And the observed position is not rewritten to match the request
 
-Scenario: RobotState round trips without changing optional-field absence
-  Given a valid RobotState
-  When it is serialized to JSON and parsed
-  Then structural state data is preserved
-  And absent orientation and gripper properties remain absent
+  Scenario: RobotState does not expose robot-specific joint state
+    When the RobotState contract is inspected
+    Then it does not contain anonymous joint-position arrays
+    And it does not contain CLR joint names or servo identifiers
 
-RobotState feedback is exposed through a robot-independent observer port:
+  Scenario: RobotState does not contain transport or control state
+    When the RobotState contract is inspected
+    Then it does not contain connection state
+    And it does not contain ControlPolicy state
+    And it does not contain session identity
+    And it does not contain generic error strings
 
-  RobotStateObserver = (state: RobotState) => void
-  RobotStateFeedback = {
-    onState(observer: RobotStateObserver): Unsubscribe
-    publish(state: RobotState): void
-  }
+  Scenario: RobotState is deeply readonly
+    Given a valid RobotState is created
+    When the state is inspected
+    Then the state and nested values cannot be mutated
 
-BDD20 owns canonical validation and feedback publication. BDD19 owns transport
-serialization and delivery. BDD17 may evaluate freshness from observedAt, but
-BDD20 does not decide control permission or stop state.
+  Scenario: RobotState round trips without changing optional-field absence
+    Given a valid RobotState
+    When it is serialized to JSON and parsed
+    Then structural state data is preserved
+    And absent orientation properties remain absent
 
-Scenario: Feedback observers are isolated
-  Given one RobotState observer throws
-  When feedback is published
-  Then other observers still receive the state
-  And the feedback boundary does not throw
+  Scenario: Feedback observers receive validated observed state
+    Given a validated RobotState is published
+    When a RobotState observer is registered
+    Then the observer receives the same observed state
+    And no requested execution is implied
 
-Scenario: Transport carries RobotState without claiming execution
-  Given a validated RobotState is published
-  When BDD19 transports it to the browser
-  Then the browser receives actual observed state
-  And the transport does not infer that a requested target was executed
+  Scenario: Feedback observers are isolated
+    Given one RobotState observer throws
+    When feedback is published
+    Then other observers still receive the state
+    And the feedback boundary does not throw
+
+  Scenario: RobotState remains independent of external integration
+    Then RobotState has no dependency on ROS
+    And RobotState has no dependency on rosbridge
+    And RobotState has no dependency on roslibjs
+    And RobotState has no dependency on clr_ws
+    And RobotState has no dependency on OInK
+    And RobotState has no dependency on JointTrajectory
+    And RobotState has no dependency on ClrRobotAdapter
+
+  Scenario: Feedback translation remains deferred
+    Given typed CLR or ROS feedback exists
+    When Requirement 20 is implemented
+    Then no CLR-to-RobotState conversion is performed
+    And no /joint_states parser is introduced
+    And the translation remains owned by a later requirement

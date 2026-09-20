@@ -14,6 +14,7 @@ export type TeleopPositionInput = Readonly<{
   readonly calibration: ArmCalibration | null;
   readonly validity: ArmTrackingValidity;
   readonly workspace: WorkspaceMapping;
+  readonly transformDisplacement?: (displacement: ArmDisplacement) => ArmDisplacement;
 }>;
 
 export type TeleopPositionFailureReason =
@@ -80,10 +81,10 @@ export const mapTeleopPosition: MapTeleopPosition = (input) => {
     return createPositionFailure("mapping-invalid");
   }
 
-  const workspaceResult = input.workspace.mapDisplacement(
-    input.side,
-    displacementResult.displacement
-  );
+  const displacement = input.transformDisplacement === undefined
+    ? displacementResult.displacement
+    : input.transformDisplacement(displacementResult.displacement);
+  const workspaceResult = input.workspace.mapDisplacement(input.side, displacement);
   if (!workspaceResult.ok) return createPositionFailure("workspace-invalid");
   if (!isFinitePosition(workspaceResult.position)) {
     return createPositionFailure("mapping-invalid");

@@ -7,6 +7,11 @@ const source = readFileSync(resolve(fileURLToPath(new URL(".", import.meta.url))
 
 describe("RobotState boundary", () => {
   it("contains no implementation-specific robot dependencies", () => {
-    expect(source).not.toMatch(/ROS|MoveIt|MuJoCo|NASA|iMETRO|CLR|UR10e|Hand-E|SO-101|servo|WebSocket|RobotAdapter/i);
+    expect(source).not.toMatch(/ROS|ROSLIB|rosbridge|MoveIt|MuJoCo|NASA|iMETRO|CLR|clr_ws|OInK|JointTrajectory|sensor_msgs|geometry_msgs|UR10e|Hand-E|SO-101|servo|WebSocket|RobotAdapter|MediaPipe|camera|UI/i);
+  });
+
+  it("contains only robot-independent observed-state fields", () => {
+    expect(source).not.toMatch(/jointPositions|jointNames|connectionId|adapterId|sessionId|enabled|disabled|stopped|error:\s*string/);
+    expect(source).not.toMatch(/gripper/);
   });
 });

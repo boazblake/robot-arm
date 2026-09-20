@@ -8,6 +8,8 @@ type StartTracking = () => Promise<void>;
 type StopTracking = () => Promise<void>;
 
 let starting = false;
+let lifecycleGeneration = 0;
+const isCurrent = (generation: number): boolean => generation === lifecycleGeneration;
 
 type RollbackStartup = () => Promise<void>;
 const rollbackStartup: RollbackStartup = async () => {
@@ -26,26 +28,28 @@ const rollbackStartup: RollbackStartup = async () => {
 const startTracking: StartTracking = async () => {
   if (starting || state() === "Streaming") return;
   starting = true;
+  const generation = ++lifecycleGeneration;
   startupError(null);
   if (state() === "Stopped") transition("restart");
   transition("start");
 
   try {
     await cameraService.initialize();
+    if (!isCurrent(generation)) return;
     await holisticService.initialize();
+    if (!isCurrent(generation)) return;
     renderService.startLoop();
     tracking.paused(false);
     holisticService.startFrameLoop();
     transition("ready");
     transition("beginStreaming");
   } catch (error) {
+    if (!isCurrent(generation)) return;
     await rollbackStartup();
-    startupError(
-      error instanceof Error ? error.message : "Unable to start tracking"
-    );
+    startupError(error instanceof Error ? error.message : "Unable to start tracking");
     transition("error");
   } finally {
-    starting = false;
+    if (isCurrent(generation)) starting = false;
   }
 };
 
@@ -62,6 +66,8 @@ const resumeTracking = (): void => {
 };
 
 const stopTracking: StopTracking = async () => {
+  ++lifecycleGeneration;
+  starting = false;
   renderService.stopLoop();
   await holisticService.close();
   await cameraService.stop();

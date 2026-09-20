@@ -1,5 +1,9 @@
 node_modules/
 docs/
+!docs/
+docs/*
+!docs/architecture/
+!docs/architecture/**
 dist/
 build/
 out/
