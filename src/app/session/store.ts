@@ -1,6 +1,7 @@
 import Stream from "mithril/stream";
 import m from "mithril";
 import type { TrackingFrame } from "../../tracking/model/tracking-frame";
+import type { Point3D } from "../../tracking/model/pose-world-diagnostic";
 
 type State = "Idle" | "Loading" | "Ready" | "Streaming" | "Stopped";
 const transitions: Record<State, Partial<Record<string, State>>> = {
@@ -23,7 +24,20 @@ export const camera = {
   ready: Stream(false),
 };
 export const dimensions = Stream({ width: 1280, height: 720 });
-export const previewFit = Stream<"cover" | "contain">("cover");
+export const previewFit = Stream<"cover" | "contain">("contain");
+export const previewRotationDegrees = Stream(0);
+const PREVIEW_ROTATION_STEP_DEGREES = 10;
+const PREVIEW_ROTATION_LIMIT_DEGREES = 360;
+
+type RotatePreview = (direction: -1 | 1) => void;
+export const rotatePreview: RotatePreview = (direction) => {
+  const next = previewRotationDegrees() + direction * PREVIEW_ROTATION_STEP_DEGREES;
+  previewRotationDegrees(
+    Math.min(PREVIEW_ROTATION_LIMIT_DEGREES, Math.max(-PREVIEW_ROTATION_LIMIT_DEGREES, next)),
+  );
+  m.redraw();
+};
+
 export const isFrontCamera = Stream<"web-camera-front" | null>(
   "web-camera-front"
 );
@@ -38,10 +52,33 @@ export const tracking = {
   frame: Stream<TrackingFrame>({
     timestamp: 0,
     poseLandmarks: [],
+    poseWorldLandmarks: [],
     leftHandLandmarks: [],
     rightHandLandmarks: [],
     faceLandmarks: [],
   }),
 };
 export const features = Stream({ pose: true, hands: true, face: true });
+export const diagnosticPoseWorldSource = Stream<readonly Point3D[] | null>(null);
+export const diagnosticPoseWorldAngle = Stream(0);
+export const diagnosticPoseWorldFrameId = Stream(0);
+export const freezePoseWorldDiagnostic = (source: readonly Point3D[], frameId = 0): void => {
+  diagnosticPoseWorldSource(Object.freeze(source.map((point) => Object.freeze({ ...point }))));
+  diagnosticPoseWorldFrameId(frameId);
+  diagnosticPoseWorldAngle(0);
+  previewRotationDegrees(0);
+  m.redraw();
+};
+export const setDiagnosticPoseWorldAngle = (degrees: number): void => {
+  diagnosticPoseWorldAngle(degrees);
+  previewRotationDegrees(degrees);
+  m.redraw();
+};
+export const clearPoseWorldDiagnostic = (): void => {
+  diagnosticPoseWorldSource(null);
+  diagnosticPoseWorldFrameId(0);
+  diagnosticPoseWorldAngle(0);
+  previewRotationDegrees(0);
+  m.redraw();
+};
 export const startupError = Stream<string | null>(null);

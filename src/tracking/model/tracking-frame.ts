@@ -8,6 +8,8 @@ export type Landmark = Readonly<{
 export type TrackingFrame = Readonly<{
   readonly timestamp: number;
   readonly poseLandmarks: readonly Landmark[];
+  /** MediaPipe PoseLandmarker world coordinates; absent on adapters that do not expose them. */
+  readonly poseWorldLandmarks?: readonly Landmark[];
   readonly leftHandLandmarks: readonly Landmark[];
   readonly rightHandLandmarks: readonly Landmark[];
   readonly faceLandmarks: readonly Landmark[];

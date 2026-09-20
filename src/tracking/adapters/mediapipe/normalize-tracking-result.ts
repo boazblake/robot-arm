@@ -86,6 +86,40 @@ const readHandLabel: ReadHandLabel = (value) => {
   return uniqueLabels.length === 1 ? uniqueLabels[0] : null;
 };
 
+type HandAssignment = Readonly<{
+  readonly left: readonly Landmark[];
+  readonly right: readonly Landmark[];
+}>;
+
+const wristDistance = (hand: readonly Landmark[], poseWrist: Landmark): number => {
+  const handWrist = hand[0];
+  return handWrist === undefined
+    ? Number.POSITIVE_INFINITY
+    : Math.hypot(handWrist.x - poseWrist.x, handWrist.y - poseWrist.y);
+};
+
+type AssignHandsToPose = (
+  hands: readonly (readonly Landmark[])[],
+  pose: readonly Landmark[],
+) => HandAssignment | null;
+const assignHandsToPose: AssignHandsToPose = (hands, pose) => {
+  const leftWrist = pose[15];
+  const rightWrist = pose[16];
+  if (leftWrist === undefined || rightWrist === undefined || hands.length === 0 || hands.length > 2) {
+    return null;
+  }
+  if (hands.length === 1) {
+    return wristDistance(hands[0], leftWrist) <= wristDistance(hands[0], rightWrist)
+      ? { left: hands[0], right: [] }
+      : { left: [], right: hands[0] };
+  }
+  const firstAsLeft = wristDistance(hands[0], leftWrist) + wristDistance(hands[1], rightWrist);
+  const firstAsRight = wristDistance(hands[0], rightWrist) + wristDistance(hands[1], leftWrist);
+  return firstAsLeft <= firstAsRight
+    ? { left: hands[0], right: hands[1] }
+    : { left: hands[1], right: hands[0] };
+};
+
 export type WebTrackingResults = {
   readonly pose: unknown;
   readonly hands: unknown;
@@ -130,6 +164,21 @@ export const normalizeTrackingResult: NormalizeTrackingResult = (
     "rightHandLandmarks",
     "right_hand_landmarks",
   ]);
+  const poseLandmarks = findLandmarks(root, [
+    "poseLandmarks",
+    "pose_landmarks",
+    "multiPoseLandmarks",
+  ]);
+  const poseWorldLandmarks = findLandmarks(root, [
+    "poseWorldLandmarks",
+    "pose_world_landmarks",
+    "worldLandmarks",
+    "world_landmarks",
+  ]);
+  const normalizedHands = hands
+    .map(normalizeLandmarkCollection)
+    .filter((points): points is readonly Landmark[] => points.length > 0);
+  const poseAssignment = assignHandsToPose(normalizedHands, poseLandmarks);
   const assignments = handedness.reduce<Readonly<Record<"left" | "right", readonly Landmark[] | null | undefined>>>((result, entry, index) => {
     const label = readHandLabel(entry);
     const points = label === null ? Object.freeze([]) : normalizeLandmarkCollection(hands[index]);
@@ -139,18 +188,15 @@ export const normalizeTrackingResult: NormalizeTrackingResult = (
   }, { left: undefined, right: undefined });
   const leftHandLandmarks = explicitLeftHandLandmarks.length > 0
     ? explicitLeftHandLandmarks
-    : assignments.left ?? Object.freeze([]);
+    : poseAssignment?.left ?? assignments.left ?? Object.freeze([]);
   const rightHandLandmarks = explicitRightHandLandmarks.length > 0
     ? explicitRightHandLandmarks
-    : assignments.right ?? Object.freeze([]);
+    : poseAssignment?.right ?? assignments.right ?? Object.freeze([]);
 
   return Object.freeze({
     timestamp: frameTimestamp,
-    poseLandmarks: findLandmarks(root, [
-      "poseLandmarks",
-      "pose_landmarks",
-      "multiPoseLandmarks",
-    ]),
+    poseLandmarks,
+    ...(poseWorldLandmarks.length > 0 ? { poseWorldLandmarks } : {}),
     leftHandLandmarks,
     rightHandLandmarks,
     faceLandmarks: findLandmarks(root, [
