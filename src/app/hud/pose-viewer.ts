@@ -1,5 +1,6 @@
 import m from "mithril";
 import {
+  comparison,
   elements,
   previewFit,
   previewRotationDegrees,
@@ -184,11 +185,11 @@ const TrackingViewer: m.Component = {
         m("video", { playsinline: true, autoplay: true, muted: true }),
         m("div.landmark-comparison", [
           m("div.landmark-pane", [
-            m("span.landmark-pane-label", "Holistic"),
+            m("span.landmark-pane-label", `Holistic · face ${frame.faceLandmarks.length}`),
             m("canvas.holistic-canvas", { "aria-label": "Holistic landmarks" }),
           ]),
           m("div.landmark-pane", [
-            m("span.landmark-pane-label", "Pose + Hands + Face"),
+            m("span.landmark-pane-label", `Pose + Hands + Face · face ${comparison.frame().faceLandmarks.length}`),
             m("canvas.separate-canvas", { "aria-label": "Separate Pose, Hand, and Face landmarks" }),
           ]),
         ]),

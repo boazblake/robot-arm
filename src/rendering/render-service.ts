@@ -155,6 +155,27 @@ export const drawTrackingFrame: DrawTrackingFrame = (
 };
 
 type NormalizedPoint = Point3D;
+type VideoRenderRect = Readonly<{
+  readonly width: number;
+  readonly height: number;
+  readonly offsetX: number;
+  readonly offsetY: number;
+}>;
+const videoRenderRect = (canvas: HTMLCanvasElement, video: HTMLVideoElement | null, fit: "cover" | "contain"): VideoRenderRect => {
+  const videoWidth = video?.videoWidth || canvas.width;
+  const videoHeight = video?.videoHeight || canvas.height;
+  const videoAspect = videoWidth / videoHeight;
+  const canvasAspect = canvas.width / canvas.height;
+  const isCover = fit === "cover";
+  const width = isCover
+    ? videoAspect > canvasAspect ? canvas.height * videoAspect : canvas.width
+    : videoAspect > canvasAspect ? canvas.width : canvas.height * videoAspect;
+  const height = isCover
+    ? videoAspect > canvasAspect ? canvas.height : canvas.width / videoAspect
+    : videoAspect > canvasAspect ? canvas.width / videoAspect : canvas.height;
+  return Object.freeze({ width, height, offsetX: (canvas.width - width) / 2, offsetY: (canvas.height - height) / 2 });
+};
+
 type PreviewMapper = (
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement | null,
@@ -162,24 +183,12 @@ type PreviewMapper = (
   rotationDegrees?: number,
 ) => (point: NormalizedPoint) => CanvasPoint;
 const previewMapper: PreviewMapper = (canvas, video, fit, rotationDegrees = previewRotationDegrees()) => {
-  const videoWidth = video?.videoWidth || canvas.width;
-  const videoHeight = video?.videoHeight || canvas.height;
-  const videoAspect = videoWidth / videoHeight;
-  const canvasAspect = canvas.width / canvas.height;
-  const isCover = fit === "cover";
-  const renderedWidth = isCover
-    ? videoAspect > canvasAspect ? canvas.height * videoAspect : canvas.width
-    : videoAspect > canvasAspect ? canvas.width : canvas.height * videoAspect;
-  const renderedHeight = isCover
-    ? videoAspect > canvasAspect ? canvas.height : canvas.width / videoAspect
-    : videoAspect > canvasAspect ? canvas.width / videoAspect : canvas.height;
-  const offsetX = (canvas.width - renderedWidth) / 2;
-  const offsetY = (canvas.height - renderedHeight) / 2;
+  const rect = videoRenderRect(canvas, video, fit);
   return (point) => {
     const rotated = rotatePreviewPoint(point, rotationDegrees);
     return {
-      x: offsetX + rotated.x * renderedWidth,
-      y: offsetY + rotated.y * renderedHeight,
+      x: rect.offsetX + rotated.x * rect.width,
+      y: rect.offsetY + rotated.y * rect.height,
     };
   };
 };
@@ -205,7 +214,9 @@ export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
 
 const drawVideoBackground = (context: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void => {
   const video = elements.video();
-  if (video && video.readyState >= 2) context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  if (!video || video.readyState < 2) return;
+  const rect = videoRenderRect(canvas, video, previewFit());
+  context.drawImage(video, rect.offsetX, rect.offsetY, rect.width, rect.height);
 };
 
 const drawComparisonFrame = (canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, frame: TrackingFrame): void => {
