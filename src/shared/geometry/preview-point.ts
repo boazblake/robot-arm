@@ -31,34 +31,24 @@ export const rotatePreviewPoint: RotatePreviewPoint = (point, rotationDegrees) =
 
 export const rotatePreviewMesh: RotatePreviewMesh = (points, rotationDegrees) => {
   if (points.length === 0) return Object.freeze([]);
-  const cameraDistance = 4;
-  const worldPoints = points.map((point) => {
-    const depth = point.z + cameraDistance;
-    return {
-      x: (point.x - 0.5) * depth,
-      y: (point.y - 0.5) * depth,
-      z: point.z,
-    };
-  });
-  const sum = worldPoints.reduce(
+  const sum = points.reduce(
     (total, point) => ({ x: total.x + point.x, y: total.y + point.y, z: total.z + point.z }),
     { x: 0, y: 0, z: 0 },
   );
   const center = {
-    x: sum.x / worldPoints.length,
-    y: sum.y / worldPoints.length,
-    z: sum.z / worldPoints.length,
+    x: sum.x / points.length,
+    y: sum.y / points.length,
+    z: sum.z / points.length,
   };
-  return Object.freeze(worldPoints.map((point) => {
+  return Object.freeze(points.map((point) => {
     const rotated = rotateIntoPreviewFrame(rotationDegrees, {
       x: point.x - center.x,
       y: point.y - center.y,
       z: point.z - center.z,
     });
-    const depth = center.z + rotated.z + cameraDistance;
     return Object.freeze({
-      x: 0.5 + (center.x + rotated.x) / depth,
-      y: 0.5 + (center.y + rotated.y) / depth,
+      x: center.x + rotated.x,
+      y: center.y + rotated.y,
       z: center.z + rotated.z,
     });
   }));

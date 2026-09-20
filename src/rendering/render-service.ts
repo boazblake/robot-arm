@@ -1,7 +1,7 @@
 import { comparison, diagnosticPoseWorldAngle, diagnosticPoseWorldSource, elements, features, previewFit, previewRotationDegrees, tracking } from "../app/session/store";
 import { orthographicProject, rotatePoseWorld, poseHipCenter, type Point3D as WorldPoint3D } from "../tracking/model/pose-world-diagnostic";
 import { alignHandDepthToPose } from "../shared/geometry/preview-depth";
-import { rotatePreviewPoint } from "../shared/geometry/preview-point";
+import { rotatePreviewMesh, rotatePreviewPoint } from "../shared/geometry/preview-point";
 import type { TrackingFrame } from "../tracking/model/tracking-frame";
 
 const poseConnections: readonly [number, number][] = [
@@ -109,7 +109,11 @@ const drawFrozenPoseWorld: (ctx: CanvasRenderingContext2D, source: readonly Worl
   const center = poseHipCenter(source);
   const rotated = rotatePoseWorld(source, "y", degrees, center);
   const scale = Math.min(ctx.canvas.width, ctx.canvas.height) * 0.8;
-  const map: PointMapper = (point) => orthographicProject(point, ctx.canvas.width, ctx.canvas.height, scale);
+  const map: PointMapper = (point) => orthographicProject({
+    x: point.x - center.x,
+    y: point.y - center.y,
+    z: point.z - center.z,
+  }, ctx.canvas.width, ctx.canvas.height, scale);
   drawPose(ctx, rotated, map);
 };
 
@@ -206,8 +210,13 @@ export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
     drawSkeleton(ctx, frame.rightHandLandmarks, "#22c55e", 2.5, map, handConnections);
   }
   if (flags.face) {
-    const faceMap = previewMapper(ctx.canvas, elements.video(), previewFit());
-    drawPoints(ctx, frame.faceLandmarks, "#f8fafc", 1, faceMap);
+    const rotatedFace = rotatePreviewMesh(frame.faceLandmarks, previewRotationDegrees());
+    const rect = videoRenderRect(ctx.canvas, elements.video(), previewFit());
+    const faceMap: PointMapper = (point) => ({
+      x: rect.offsetX + point.x * rect.width,
+      y: rect.offsetY + point.y * rect.height,
+    });
+    drawPoints(ctx, rotatedFace, "#f8fafc", 1, faceMap);
   }
 };
 
