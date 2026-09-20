@@ -207,7 +207,11 @@ export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
   }
   if (flags.face) {
     const rotatedFace = rotatePreviewMesh(frame.faceLandmarks, previewRotationDegrees());
-    const faceMap = previewMapper(ctx.canvas, elements.video(), previewFit(), 0);
+    const rect = videoRenderRect(ctx.canvas, elements.video(), previewFit());
+    const faceMap: PointMapper = (point) => ({
+      x: rect.offsetX + point.x * rect.width,
+      y: rect.offsetY + point.y * rect.height,
+    });
     drawPoints(ctx, rotatedFace, "#f8fafc", 1, faceMap);
   }
 };
@@ -264,7 +268,7 @@ const startRenderLoop: StartRenderLoop = () => {
       const comparisonContext = elements.comparisonContext() ?? comparisonCanvas?.getContext("2d") ?? null;
       if (comparisonCanvas && comparisonContext && comparisonCanvas.clientWidth > 0 && comparisonCanvas.clientHeight > 0 && comparison.available()) {
         elements.comparisonContext(comparisonContext);
-        drawComparisonFrame(comparisonCanvas, comparisonContext, comparison.frame());
+        drawComparisonFrame(comparisonCanvas, comparisonContext, comparison.frozenFrame() ?? comparison.frame());
       }
     }
     animationFrame = requestAnimationFrame(loop);

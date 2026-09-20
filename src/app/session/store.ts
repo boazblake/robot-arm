@@ -48,9 +48,24 @@ export const elements = {
   comparisonContext: Stream<CanvasRenderingContext2D | null>(null),
   context: Stream<CanvasRenderingContext2D | null>(null),
 };
+const freezeTrackingFrame = (frame: TrackingFrame): TrackingFrame => Object.freeze({
+  ...frame,
+  poseLandmarks: Object.freeze(frame.poseLandmarks.map((point) => Object.freeze({ ...point }))),
+  ...(frame.poseWorldLandmarks ? { poseWorldLandmarks: Object.freeze(frame.poseWorldLandmarks.map((point) => Object.freeze({ ...point }))) } : {}),
+  leftHandLandmarks: Object.freeze(frame.leftHandLandmarks.map((point) => Object.freeze({ ...point }))),
+  rightHandLandmarks: Object.freeze(frame.rightHandLandmarks.map((point) => Object.freeze({ ...point }))),
+  faceLandmarks: Object.freeze(frame.faceLandmarks.map((point) => Object.freeze({ ...point }))),
+});
 export const comparison = {
   frame: Stream<TrackingFrame>({ timestamp: 0, poseLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] }),
+  frozenFrame: Stream<TrackingFrame | null>(null),
   available: Stream(false),
+};
+export const freezeComparisonFrame = (): void => {
+  comparison.frozenFrame(freezeTrackingFrame(comparison.frame()));
+};
+export const clearComparisonFrame = (): void => {
+  comparison.frozenFrame(null);
 };
 export const tracking = {
   ready: Stream(false),

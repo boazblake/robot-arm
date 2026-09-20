@@ -2,6 +2,8 @@ import m from "mithril";
 import {
   comparison,
   elements,
+  freezeComparisonFrame,
+  clearComparisonFrame,
   previewFit,
   previewRotationDegrees,
   rotatePreview,
@@ -95,6 +97,7 @@ const freezePoseWorld: () => void = () => {
     return;
   }
   freezePoseWorldDiagnostic(source, tracking.frame().timestamp);
+  freezeComparisonFrame();
 };
 const snapshotTrackingPoses: SnapshotTrackingPoses = () => {
   const frame = tracking.frame();
@@ -122,9 +125,9 @@ const snapshotTrackingPoses: SnapshotTrackingPoses = () => {
         handWrist: compactOptionalPoint((side === "left" ? frame.leftHandLandmarks : frame.rightHandLandmarks)[0] ?? null),
         handPalm: rawPalm === null ? null : compactPoint(rawPalm),
       },
-      canonical: { controlPoint: compactOptionalPoint(arm.canonical), neutralPoint: compactOptionalPoint(arm.neutral) },
+      canonical: null,
       displacement: arm.displacement.available ? compactPoint(arm.displacement.displacement) : null,
-      uiFrameDisplacement: compactOptionalPoint(arm.uiFrameDisplacement),
+      uiFrameDisplacement: null,
       mapped: compactOptionalPoint(arm.mapped),
       stabilized: compactOptionalPoint(arm.stabilized),
       target: arm.target === null ? null : compactPoint(arm.target.position),
@@ -270,7 +273,10 @@ const TrackingViewer: m.Component = {
               size: "small",
               fill: "outline",
               disabled: diagnosticPoseWorldSource() === null,
-              onclick: clearPoseWorldDiagnostic,
+              onclick: () => {
+                clearComparisonFrame();
+                clearPoseWorldDiagnostic();
+              },
             }, "Resume Live"),
             ...[0, 45, 90, 180, 270, 360].map((angle) => m("ion-button", {
               size: "small",

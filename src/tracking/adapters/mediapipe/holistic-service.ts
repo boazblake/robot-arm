@@ -248,6 +248,7 @@ export const holisticService = {
     tracking.paused(false);
     tracking.frame({ timestamp: 0, poseLandmarks: [], poseWorldLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] });
     comparison.frame({ timestamp: 0, poseLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] });
+    comparison.frozenFrame(null);
     resetTrackingPipeline();
   },
 };
