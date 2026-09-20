@@ -102,7 +102,7 @@ type DrawPose = (
   map: PointMapper
 ) => void;
 const drawPose: DrawPose = (ctx, points, map) =>
-  drawSkeleton(ctx, points, "#ef4444", 4, map, poseConnections);
+  drawSkeleton(ctx, points, "#ef4444", 2.5, map, poseConnections);
 
 const drawFrozenPoseWorld: (ctx: CanvasRenderingContext2D, source: readonly WorldPoint3D[], degrees: number) => void = (ctx, source, degrees) => {
   if (source.length < 29) return;
@@ -138,7 +138,7 @@ export const drawTrackingFrame: DrawTrackingFrame = (
       ctx,
       frame.leftHandLandmarks,
       "#22c55e",
-      4,
+      2.5,
       map,
       handConnections
     );
@@ -146,12 +146,12 @@ export const drawTrackingFrame: DrawTrackingFrame = (
       ctx,
       frame.rightHandLandmarks,
       "#22c55e",
-      4,
+      2.5,
       map,
       handConnections
     );
   }
-  if (flags.face) drawPoints(ctx, frame.faceLandmarks, "#f8fafc", 2, map);
+  if (flags.face) drawPoints(ctx, frame.faceLandmarks, "#f8fafc", 1, map);
 };
 
 type NormalizedPoint = Point3D;
@@ -202,13 +202,13 @@ type DrawPreviewFrame = (
 export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
   if (flags.pose) drawPose(ctx, frame.poseLandmarks, map);
   if (flags.hands) {
-    drawSkeleton(ctx, frame.leftHandLandmarks, "#22c55e", 4, map, handConnections);
-    drawSkeleton(ctx, frame.rightHandLandmarks, "#22c55e", 4, map, handConnections);
+    drawSkeleton(ctx, frame.leftHandLandmarks, "#22c55e", 2.5, map, handConnections);
+    drawSkeleton(ctx, frame.rightHandLandmarks, "#22c55e", 2.5, map, handConnections);
   }
   if (flags.face) {
     const rotatedFace = rotatePreviewMesh(frame.faceLandmarks, previewRotationDegrees());
     const faceMap = previewMapper(ctx.canvas, elements.video(), previewFit(), 0);
-    drawPoints(ctx, rotatedFace, "#f8fafc", 2, faceMap);
+    drawPoints(ctx, rotatedFace, "#f8fafc", 1, faceMap);
   }
 };
 
