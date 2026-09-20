@@ -27,6 +27,52 @@
   object-fit: contain;
 }
 
+.landmark-comparison {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  background: #111;
+}
+
+.landmark-pane {
+  position: relative;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+  border-right: 1px solid #ffffff44;
+}
+
+.landmark-pane:last-child {
+  border-right: 0;
+}
+
+.landmark-pane canvas.holistic-canvas,
+.landmark-pane canvas.separate-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  object-fit: fill;
+}
+
+.tracking-viewer.web-camera-front .landmark-pane canvas {
+  transform: scaleX(-1);
+}
+
+.landmark-pane-label {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  left: 8px;
+  padding: 4px 7px;
+  color: #fff;
+  background: #111c;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
 .tracking-viewer.web-camera-front video,
 .tracking-viewer.web-camera-front canvas { transform: scaleX(-1); }
 

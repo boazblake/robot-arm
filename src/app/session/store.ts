@@ -44,7 +44,13 @@ export const isFrontCamera = Stream<"web-camera-front" | null>(
 export const elements = {
   video: Stream<HTMLVideoElement | null>(null),
   canvas: Stream<HTMLCanvasElement | null>(null),
+  comparisonCanvas: Stream<HTMLCanvasElement | null>(null),
+  comparisonContext: Stream<CanvasRenderingContext2D | null>(null),
   context: Stream<CanvasRenderingContext2D | null>(null),
+};
+export const comparison = {
+  frame: Stream<TrackingFrame>({ timestamp: 0, poseLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] }),
+  available: Stream(false),
 };
 export const tracking = {
   ready: Stream(false),

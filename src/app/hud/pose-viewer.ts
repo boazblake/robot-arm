@@ -163,7 +163,8 @@ const snapshotTrackingPoses: SnapshotTrackingPoses = () => {
 const TrackingViewer: m.Component = {
   oncreate: ({ dom }) => {
     elements.video(dom.querySelector("video"));
-    elements.canvas(dom.querySelector("canvas"));
+    elements.canvas(dom.querySelector("canvas.holistic-canvas"));
+    elements.comparisonCanvas(dom.querySelector("canvas.separate-canvas"));
     void trackingSession.start().catch((error) =>
       console.error("[tracking] failed to start session", error)
     );
@@ -181,9 +182,16 @@ const TrackingViewer: m.Component = {
       `section.tracking-viewer.preview-${previewFit()} ${isFrontCamera()}`,
       [
         m("video", { playsinline: true, autoplay: true, muted: true }),
-        m("canvas", {
-          "aria-label": "Detected pose, hand, and face landmarks",
-        }),
+        m("div.landmark-comparison", [
+          m("div.landmark-pane", [
+            m("span.landmark-pane-label", "Holistic"),
+            m("canvas.holistic-canvas", { "aria-label": "Holistic landmarks" }),
+          ]),
+          m("div.landmark-pane", [
+            m("span.landmark-pane-label", "Pose + Hands + Face"),
+            m("canvas.separate-canvas", { "aria-label": "Separate Pose, Hand, and Face landmarks" }),
+          ]),
+        ]),
         m("div.tracking-toolbar", [
           m("strong", "Human-motion tracking"),
           m(

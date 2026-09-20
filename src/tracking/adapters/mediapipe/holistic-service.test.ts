@@ -13,6 +13,9 @@ vi.mock("./media-pipe", () => ({ default: { send: vi.fn(), close: vi.fn() } }));
 vi.mock("@mediapipe/tasks-vision", () => ({
   FilesetResolver: { forVisionTasks: vi.fn(async () => ({})) },
   HolisticLandmarker: { createFromOptions: factories.holistic },
+  PoseLandmarker: undefined,
+  HandLandmarker: undefined,
+  FaceLandmarker: undefined,
 }));
 vi.mock("../../../camera/camera-service", () => ({
   cameraService: { captureSample: vi.fn(async () => ({ value: undefined })) },

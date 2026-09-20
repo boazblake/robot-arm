@@ -1,11 +1,11 @@
 import m from "mithril";
 import { Capacitor } from "@capacitor/core";
 import CapacitorMediaPipe from "./media-pipe";
-import { elements, tracking } from "../../../app/session/store";
+import { comparison, elements, tracking } from "../../../app/session/store";
 import { processTrackingFrame, resetTrackingPipeline } from "../../../app/session/teleop-session";
 import { cameraService } from "../../../camera/camera-service";
 import type { HolisticLandmarkerResult } from "@mediapipe/tasks-vision";
-import { normalizeTrackingResult } from "./normalize-tracking-result";
+import { normalizeTrackingResult, normalizeWebTrackingResults } from "./normalize-tracking-result";
 
 const VERSION = "0.10.22-rc.20250304";
 type HolisticLandmarkerInstance = {
@@ -13,8 +13,16 @@ type HolisticLandmarkerInstance = {
   close: () => void;
 };
 type NativeListener = { remove: () => Promise<void> };
+type SeparateLandmarker = {
+  detectForVideo: (video: HTMLVideoElement, time: number) => unknown;
+  close: () => void;
+};
+type ClosableLandmarker = { close: () => void };
 
 let holistic: HolisticLandmarkerInstance | null = null;
+let separatePose: SeparateLandmarker | null = null;
+let separateHands: SeparateLandmarker | null = null;
+let separateFace: SeparateLandmarker | null = null;
 let listener: NativeListener | null = null;
 let running = false;
 let lifecycleGeneration = 0;
@@ -34,13 +42,20 @@ const isCurrentInitialization = (generation: number): boolean =>
 const isCurrentLoop = (generation: number): boolean =>
   running && generation === loopGeneration;
 
-const closeLandmarker = (landmarker: HolisticLandmarkerInstance | null): void => {
+const closeLandmarker = (landmarker: ClosableLandmarker | null): void => {
   landmarker?.close();
 };
 
 const closeLandmarkers = (): void => {
   closeLandmarker(holistic);
+  closeLandmarker(separatePose);
+  closeLandmarker(separateHands);
+  closeLandmarker(separateFace);
   holistic = null;
+  separatePose = null;
+  separateHands = null;
+  separateFace = null;
+  comparison.available(false);
 };
 
 const webInitialize = async (generation: number): Promise<void> => {
@@ -69,6 +84,32 @@ const webInitialize = async (generation: number): Promise<void> => {
     return;
   }
   holistic = createdHolistic;
+  const PoseLandmarker = Reflect.get(vision, "PoseLandmarker") as typeof vision.PoseLandmarker | undefined;
+  const HandLandmarker = Reflect.get(vision, "HandLandmarker") as typeof vision.HandLandmarker | undefined;
+  const FaceLandmarker = Reflect.get(vision, "FaceLandmarker") as typeof vision.FaceLandmarker | undefined;
+  if (PoseLandmarker && HandLandmarker && FaceLandmarker) {
+    const [createdPose, createdHands, createdFace] = await Promise.all([
+      PoseLandmarker.createFromOptions(resolver, {
+        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "GPU" },
+        runningMode: "VIDEO", numPoses: 1,
+      }),
+      HandLandmarker.createFromOptions(resolver, {
+        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
+        runningMode: "VIDEO", numHands: 2,
+      }),
+      FaceLandmarker.createFromOptions(resolver, {
+        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate: "GPU" },
+        runningMode: "VIDEO", numFaces: 1,
+      }),
+    ]);
+    if (!isCurrentInitialization(generation)) {
+      createdPose.close(); createdHands.close(); createdFace.close(); return;
+    }
+    separatePose = createdPose;
+    separateHands = createdHands;
+    separateFace = createdFace;
+    comparison.available(true);
+  }
 };
 
 type SendFrames = (generation: number) => Promise<void>;
@@ -96,6 +137,18 @@ const sendFrames: SendFrames = async (generation) => {
           faceLandmarks: result?.faceLandmarks[0] ?? [],
         }, frameTimestamp);
         if (!isCurrentLoop(generation)) return;
+        if (separatePose && separateHands && separateFace) {
+          const detectSeparate = (landmarker: SeparateLandmarker, label: string): Record<string, unknown> => {
+            try { return (landmarker.detectForVideo(video, detectionTimestamp) as Record<string, unknown>) ?? {}; }
+            catch (error) { console.warn(`[tracking] separate ${label} detection failed`, error); return {}; }
+          };
+          const separateFrame = normalizeWebTrackingResults({
+            pose: detectSeparate(separatePose, "pose"),
+            hands: detectSeparate(separateHands, "hands"),
+            face: detectSeparate(separateFace, "face"),
+          }, frameTimestamp);
+          comparison.frame(separateFrame);
+        }
         tracking.frame(frame);
         processTrackingFrame(frame);
         m.redraw();
@@ -193,7 +246,8 @@ export const holisticService = {
     if (Capacitor.getPlatform() !== "web") await CapacitorMediaPipe.close();
     tracking.ready(false);
     tracking.paused(false);
-    tracking.frame({ timestamp: 0, poseLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] });
+    tracking.frame({ timestamp: 0, poseLandmarks: [], poseWorldLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] });
+    comparison.frame({ timestamp: 0, poseLandmarks: [], leftHandLandmarks: [], rightHandLandmarks: [], faceLandmarks: [] });
     resetTrackingPipeline();
   },
 };

@@ -1,4 +1,4 @@
-import { diagnosticPoseWorldAngle, diagnosticPoseWorldSource, elements, features, previewFit, previewRotationDegrees, tracking } from "../app/session/store";
+import { comparison, diagnosticPoseWorldAngle, diagnosticPoseWorldSource, elements, features, previewFit, previewRotationDegrees, tracking } from "../app/session/store";
 import { orthographicProject, rotatePoseWorld, poseHipCenter, type Point3D as WorldPoint3D } from "../tracking/model/pose-world-diagnostic";
 import { alignHandDepthToPose } from "../shared/geometry/preview-depth";
 import { rotatePreviewMesh, rotatePreviewPoint } from "../shared/geometry/preview-point";
@@ -203,6 +203,15 @@ export const drawPreviewFrame: DrawPreviewFrame = (ctx, frame, flags, map) => {
   }
 };
 
+const drawComparisonFrame = (canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, frame: TrackingFrame): void => {
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  const video = elements.video();
+  if (video && video.readyState >= 2) context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  drawPreviewFrame(context, frame, features(), previewMapper(canvas, video, previewFit()));
+};
+
 let active = false;
 let animationFrame: number | null = null;
 type StartRenderLoop = () => void;
@@ -233,6 +242,12 @@ const startRenderLoop: StartRenderLoop = () => {
           features(),
           previewMapper(canvas, elements.video(), previewFit())
         );
+      }
+      const comparisonCanvas = elements.comparisonCanvas();
+      const comparisonContext = elements.comparisonContext() ?? comparisonCanvas?.getContext("2d") ?? null;
+      if (comparisonCanvas && comparisonContext && comparisonCanvas.clientWidth > 0 && comparisonCanvas.clientHeight > 0 && comparison.available()) {
+        elements.comparisonContext(comparisonContext);
+        drawComparisonFrame(comparisonCanvas, comparisonContext, comparison.frame());
       }
     }
     animationFrame = requestAnimationFrame(loop);
