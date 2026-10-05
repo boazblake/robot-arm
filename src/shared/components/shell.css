@@ -1,17 +1,20 @@
-.app-shell {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+:root {
+  --editorial-black: #050505;
+  --editorial-white: #f4f4ef;
+  --editorial-dim: #777771;
+  --editorial-rule: #252525;
+  --editorial-acid: #c6ff00;
+  --editorial-coral: #ff5d4a;
+  --editorial-mono: "SFMono-Regular", "Roboto Mono", Menlo, monospace;
+  --editorial-sans: "Helvetica Neue", Arial, sans-serif;
 }
 
-.app-shell-main {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  background: #111;
-}
-
-.tracking {
-  height: 100%;
-}
+* { box-sizing: border-box; }
+html, body, ion-app { background: var(--editorial-black); color: var(--editorial-white); }
+.app-shell { height: 100%; display: flex; flex-direction: column; background: var(--editorial-black); }
+.app-shell-header { z-index: 10; border-bottom: 1px solid var(--editorial-rule); background: var(--editorial-black); }
+.app-shell-header ion-toolbar { --background: var(--editorial-black); --color: var(--editorial-white); --min-height: 3.25rem; display: flex; align-items: center; gap: 1rem; padding: 0 max(1rem, calc((100vw - 60rem) / 2)); }
+.app-shell-header ion-title { padding: 0; font-family: var(--editorial-mono); font-size: .72rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; }
+.app-shell-kicker { color: var(--editorial-acid); font-family: var(--editorial-mono); font-size: .65rem; letter-spacing: .1em; white-space: nowrap; }
+.app-shell-main { position: relative; flex: 1; min-height: 0; overflow: auto; background: var(--editorial-black); }
+@media (max-width: 36rem) { .app-shell-header ion-toolbar { padding-inline: .75rem; } .app-shell-kicker { display: none; } }

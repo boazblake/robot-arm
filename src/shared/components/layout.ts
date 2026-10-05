@@ -5,7 +5,7 @@ const Layout: m.Component = {
     m(
       "ion-app",
       m("ion-page.app-shell", [
-        m("ion-header", m("ion-toolbar", m("ion-title", "Robot Arm Tracking"))),
+        m("ion-header.app-shell-header", m("ion-toolbar", [m("span.app-shell-kicker", "LIFTMATE / ROBOTICS LAB"), m("ion-title", "SO—101 CONTROL")])),
         m("main.app-shell-main", vnode.children),
       ])
     ),

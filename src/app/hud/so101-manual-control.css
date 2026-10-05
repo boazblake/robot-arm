@@ -1,15 +1,63 @@
-.so101-manual-control { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #334155; border-radius: 1rem; background: #0f172a; color: #e2e8f0; }
-.so101-manual-control header, .so101-actions, .so101-joint-heading { display: flex; align-items: center; gap: .75rem; }
-.so101-manual-control header { justify-content: space-between; }
-.so101-safety { margin: 0; color: #fbbf24; font-size: .85rem; }
-.so101-actions { flex-wrap: wrap; }
-.so101-actions button, .so101-cap-actions button { padding: .45rem .7rem; }
-.so101-stop { background: #b91c1c; color: white; font-weight: 700; }
-.so101-joints { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .75rem; }
-.so101-joint { display: grid; gap: .45rem; padding: .8rem; border: 1px solid #334155; border-radius: .75rem; background: #111827; }
-.so101-joint-heading { justify-content: space-between; }
-.so101-joint output { color: #7dd3fc; font-variant-numeric: tabular-nums; }
-.so101-joint input { width: 100%; }
-.so101-joint small { color: #94a3b8; }
-.so101-cap-actions { display: flex; gap: .4rem; }
-.so101-error { color: #fca5a5; }
+.so101-manual-control {
+  --ink: #f4f4ef;
+  --muted: #777771;
+  --rule: #292929;
+  --acid: #c6ff00;
+  --coral: #ff5d4a;
+  width: min(100%, 60rem);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 0 clamp(.75rem, 3vw, 2rem) 3rem;
+  border-inline: 1px solid var(--rule);
+  color: var(--ink);
+  background: #050505;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+.so101-manual-control header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; min-height: 3.25rem; padding: .85rem 0; border-bottom: 1px solid var(--rule); }
+.so101-heading { display: flex; align-items: baseline; gap: .75rem; }
+.so101-heading small, .so101-safety, .so101-jog-toolbar, .so101-jog-hint, .so101-config summary, .so101-joint small, .so101-gripper-labels { font-family: "SFMono-Regular", Menlo, monospace; }
+.so101-heading small { color: var(--acid); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; }
+.so101-heading h1 { margin: 0; font-family: "SFMono-Regular", Menlo, monospace; font-size: .72rem; font-weight: 500; letter-spacing: .1em; line-height: 1; text-transform: uppercase; }
+.so101-manual-control header > small { color: var(--muted); font-family: "SFMono-Regular", Menlo, monospace; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; }
+.so101-safety { margin: 0; padding: .75rem 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: .65rem; letter-spacing: .04em; }
+.so101-actions { display: flex; flex-wrap: wrap; gap: 0; padding: 1rem 0; border-bottom: 1px solid var(--rule); }
+.so101-actions button, .so101-jog-toolbar select, .so101-config button { border: 1px solid var(--rule); border-radius: 0; background: #050505; color: var(--ink); font-family: "SFMono-Regular", Menlo, monospace; font-size: .65rem; letter-spacing: .04em; }
+.so101-actions button { margin-right: .4rem; padding: .65rem .75rem; }
+.so101-actions button:hover:not(:disabled), .so101-actions button:focus-visible, .so101-config button:hover:not(:disabled) { border-color: var(--acid); color: var(--acid); }
+.so101-stop { border-color: var(--coral) !important; color: var(--coral) !important; font-weight: 700; }
+.so101-control-surface { display: grid; gap: 0; }
+.so101-jog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: .65rem; line-height: 1.5; text-transform: uppercase; }
+.so101-jog-toolbar label { display: inline-flex; align-items: center; gap: .5rem; color: var(--acid); white-space: nowrap; }
+.so101-jog-toolbar select { min-height: 2rem; padding: .3rem .45rem; }
+.so101-joysticks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-bottom: 1px solid var(--rule); }
+.so101-joystick-card { display: grid; gap: .75rem; min-width: 0; padding: 1.25rem 0; }
+.so101-joystick-card + .so101-joystick-card { padding-left: clamp(1rem, 4vw, 3rem); border-left: 1px solid var(--rule); }
+.so101-joint-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.so101-joint-heading strong { font-size: .72rem; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+.so101-joint-heading span, .so101-joint output { color: var(--acid); font-family: "SFMono-Regular", Menlo, monospace; font-size: .62rem; font-variant-numeric: tabular-nums; text-align: right; }
+.so101-joystick { position: relative; width: min(100%, 19rem); aspect-ratio: 1; margin: 1rem auto; overflow: hidden; border: 1px solid #6f706a; border-radius: 50%; background: radial-gradient(circle, var(--acid) 0 2px, transparent 3px), linear-gradient(90deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%); cursor: grab; touch-action: none; }
+.so101-joystick:focus-visible { outline: 1px solid var(--acid); outline-offset: 4px; }
+.so101-joystick:active { cursor: grabbing; }
+.so101-joystick[aria-disabled="true"] { cursor: not-allowed; opacity: .45; }
+.so101-joystick-guide { position: absolute; inset: 50% .8rem auto; height: 1px; background: #6f706a; pointer-events: none; }
+.so101-joystick.is-zoned { background: radial-gradient(circle, var(--acid) 0 2px, transparent 3px), radial-gradient(circle, transparent 0 18%, #c6ff0008 48%, #c6ff0028 100%), linear-gradient(90deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%); }
+.so101-position-indicator { position: absolute; width: .6rem; height: .6rem; border: 2px solid #050505; border-radius: 50%; background: var(--coral); box-shadow: 0 0 .5rem #ff5d4a99; transform: translate(-50%, -50%); pointer-events: none; }
+.so101-joystick-knob { position: absolute; left: 50%; width: 2.8rem; height: 2.8rem; border: 1px solid #050505; border-radius: 50%; background: var(--acid); box-shadow: 0 0 0 1px var(--acid); transform: translate(-50%, -50%); pointer-events: none; }
+.so101-jog-hint { display: block; padding: .8rem 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: .62rem; line-height: 1.6; }
+.so101-gripper-slider { display: grid; gap: .5rem; padding: 1.2rem 0; border-bottom: 1px solid var(--rule); }
+.so101-gripper-slider input { width: 100%; accent-color: var(--acid); }
+.so101-gripper-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: .62rem; text-transform: uppercase; }
+.so101-config { padding-top: 1rem; }
+.so101-config summary { color: var(--muted); cursor: pointer; font-size: .65rem; text-transform: uppercase; }
+.so101-joints { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1px; margin-top: .8rem; background: var(--rule); }
+.so101-joint { display: grid; gap: .45rem; padding: .8rem; background: #0c0c0c; }
+.so101-slider { position: relative; height: 2rem; margin: .25rem .65rem; }
+.so101-track { position: absolute; top: .85rem; right: 0; left: 0; height: .25rem; background: var(--rule); }
+.so101-handle { position: absolute; top: .4rem; width: 1.2rem; height: 1.2rem; margin-left: -.6rem; padding: 0; border: 1px solid var(--ink); border-radius: 50%; cursor: grab; }
+.so101-handle-min, .so101-handle-max { z-index: 3; background: var(--coral); }
+.so101-handle-value { z-index: 2; background: var(--acid); }
+.so101-handle:disabled { opacity: .45; cursor: not-allowed; }
+.so101-joint small { color: var(--muted); font-size: .6rem; }
+.so101-error { padding: .75rem 0; border-bottom: 1px solid var(--coral); color: var(--coral); font-family: "SFMono-Regular", Menlo, monospace; font-size: .7rem; }
+@media (max-width: 42rem) { .so101-manual-control header { min-height: 3.25rem; } .so101-jog-toolbar { align-items: flex-start; flex-direction: column; } .so101-joysticks { grid-template-columns: 1fr; } .so101-joystick-card + .so101-joystick-card { padding-left: 0; border-top: 1px solid var(--rule); border-left: 0; } }
+@media (prefers-reduced-motion: no-preference) { .so101-actions button, .so101-joystick-knob { transition: border-color .2s ease, color .2s ease, box-shadow .2s ease; } }
