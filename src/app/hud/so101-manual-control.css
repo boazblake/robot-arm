@@ -40,7 +40,7 @@
 .so101-joystick:active { cursor: grabbing; }
 .so101-joystick[aria-disabled="true"] { cursor: not-allowed; opacity: .45; }
 .so101-joystick-guide { position: absolute; inset: 50% .8rem auto; height: 1px; background: #6f706a; pointer-events: none; }
-.so101-joystick.is-zoned { background: radial-gradient(circle, var(--acid) 0 2px, transparent 3px), radial-gradient(circle, transparent 0 18%, #c6ff0008 48%, #c6ff0028 100%), linear-gradient(90deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%); }
+.so101-joystick.is-zoned { background: radial-gradient(circle, var(--acid) 0 2px, transparent 3px), radial-gradient(circle, transparent 0 25%, #c6ff0028 25% 100%), linear-gradient(90deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%); }
 .so101-position-indicator { position: absolute; width: .6rem; height: .6rem; border: 2px solid #050505; border-radius: 50%; background: var(--coral); box-shadow: 0 0 .5rem #ff5d4a99; transform: translate(-50%, -50%); pointer-events: none; }
 .so101-joystick-knob { position: absolute; left: 50%; width: 2.8rem; height: 2.8rem; border: 1px solid #050505; border-radius: 50%; background: var(--acid); box-shadow: 0 0 0 1px var(--acid); transform: translate(-50%, -50%); pointer-events: none; }
 .so101-jog-hint { display: block; padding: .8rem 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: .62rem; line-height: 1.6; }

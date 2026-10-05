@@ -1,0 +1,6 @@
+.tracking { min-height: 100%; background: #050505; }
+.tracking-mode-switcher { display: flex; align-items: center; gap: .35rem; width: min(100%, 60rem); margin: 0 auto; padding: .65rem clamp(.75rem, 3vw, 2rem); border-inline: 1px solid #292929; border-bottom: 1px solid #292929; background: #050505; font-family: "SFMono-Regular", Menlo, monospace; }
+.tracking-mode-label { margin-right: auto; color: #777771; font-size: .6rem; letter-spacing: .1em; }
+.tracking-mode-switcher button { padding: .45rem .65rem; border: 1px solid #292929; border-radius: 0; background: transparent; color: #777771; font-family: inherit; font-size: .62rem; text-transform: uppercase; }
+.tracking-mode-switcher button:hover, .tracking-mode-switcher button:focus-visible, .tracking-mode-switcher button.active { border-color: #c6ff00; color: #c6ff00; }
+@media (max-width: 36rem) { .tracking-mode-switcher { align-items: flex-start; flex-wrap: wrap; } .tracking-mode-label { flex-basis: 100%; } }

@@ -157,10 +157,13 @@ const ManualControl: m.Component = {
       };
       if (group.zoned !== undefined) {
         const radius = Math.min(1, Math.hypot(xRatio, yRatio));
-        const blend = radius * radius * (3 - 2 * radius);
-        const elbowStrength = 0.5 + 0.5 * blend;
-        advance(verticalAxis, yRatio * delta);
-        advance(group.zoned, yRatio * elbowStrength * delta);
+        const innerZone = 0.5;
+        if (radius <= innerZone) {
+          advance(verticalAxis, -yRatio * delta);
+        } else {
+          const elbowStrength = (radius - innerZone) / (1 - innerZone);
+          advance(group.zoned, -yRatio * elbowStrength * delta);
+        }
         if (horizontalAxis !== undefined) advance(horizontalAxis, xRatio * delta);
       } else {
         advance(verticalAxis, yRatio * delta);
@@ -259,7 +262,7 @@ const ManualControl: m.Component = {
             oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value),
           }),
         ]),
-        m("small.so101-jog-hint", `Shoulder + elbow: X pans. Vertical direction flexes or extends; radial travel smoothly blends from shoulder toward elbow. Release to stop. Release to stop. Max speed: ${state.jogSpeed}°/s.`),
+        m("small.so101-jog-hint", `Shoulder + elbow: X pans. Inner zone: below flexes shoulder, above extends. Outer zone: below flexes elbow, above extends. Release to stop. Release to stop. Max speed: ${state.jogSpeed}°/s.`),
         m("details.so101-config", { open: state.configOpen, ontoggle: (event: Event) => { state.configOpen = (event.target as HTMLDetailsElement).open; } }, [
           m("summary", "Configuration: caps and sliders"),
           m("div.so101-joints", [
