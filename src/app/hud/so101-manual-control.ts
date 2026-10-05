@@ -15,7 +15,7 @@ type BridgeState = Readonly<{
   readonly positions: Readonly<Record<JointName, number>>;
 }>;
 type BridgeError = Readonly<{ readonly type: "error"; readonly message: string }>;
-type ComponentState = { socket: WebSocket | null; bridge: BridgeState | null; error: string | null; positions: Record<JointName, number>; configOpen: boolean; jogSpeed: number; joystickRatios: Record<string, readonly [number, number]>; activeJoystick: string | null };
+type ComponentState = { socket: WebSocket | null; bridge: BridgeState | null; error: string | null; positions: Record<JointName, number>; configOpen: boolean; joystickRatios: Record<string, readonly [number, number]>; joystickBases: Record<string, Record<JointName, number>>; activeJoystick: string | null };
 
 const JOINT_LABELS: Readonly<Record<JointName, string>> = {
   shoulder_pan: "Shoulder pan",
@@ -45,10 +45,8 @@ const parseError = (value: unknown): BridgeError | null => {
   return value as BridgeError;
 };
 
-const state: ComponentState = { socket: null, bridge: null, error: null, positions: initialPositions(), configOpen: false, jogSpeed: 20, joystickRatios: {}, activeJoystick: null };
+const state: ComponentState = { socket: null, bridge: null, error: null, positions: initialPositions(), configOpen: false, joystickRatios: {}, joystickBases: {}, activeJoystick: null };
 let heartbeatTimer: number | null = null;
-let joystickFrame: number | null = null;
-let lastJoystickFrameAt = 0;
 const stopHeartbeat = (): void => {
   if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
   heartbeatTimer = null;
@@ -143,31 +141,31 @@ const ManualControl: m.Component = {
       const current = kind === "value" ? state.positions[joint] : state.bridge?.limits[joint][kind === "min" ? 0 : 1] ?? range[0];
       updateSlider(joint, kind, current + direction * step);
     };
-    const applyJoystickControl = (group: JoystickGroup, elapsedSeconds: number): void => {
+    const applyJoystickTarget = (group: JoystickGroup): void => {
       const currentBridge = state.bridge;
-      if (currentBridge === null || !currentBridge.enabled) return;
+      const base = state.joystickBases[group.name];
+      if (currentBridge === null || !currentBridge.enabled || base === undefined) return;
       const [xRatio, yRatio] = state.joystickRatios[group.name] ?? [0, 0];
-      if (xRatio === 0 && yRatio === 0) return;
       const [verticalAxis, horizontalAxis] = group.axes;
-      const delta = state.jogSpeed * elapsedSeconds;
       const next = { ...state.positions };
-      const advance = (joint: JointName, amount: number): void => {
+      const setOffset = (joint: JointName, ratio: number): void => {
         const caps = currentBridge.limits[joint];
-        next[joint] = Math.min(caps[1], Math.max(caps[0], next[joint] + amount));
+        const halfRange = (caps[1] - caps[0]) / 2;
+        next[joint] = Math.min(caps[1], Math.max(caps[0], base[joint] + ratio * halfRange));
       };
       if (group.zoned !== undefined) {
         const radius = Math.min(1, Math.hypot(xRatio, yRatio));
         const innerZone = 0.5;
         if (radius <= innerZone) {
-          advance(verticalAxis, -yRatio * delta);
+          setOffset(verticalAxis, -yRatio / innerZone);
         } else {
           const elbowStrength = (radius - innerZone) / (1 - innerZone);
-          advance(group.zoned, -yRatio * elbowStrength * delta);
+          setOffset(group.zoned, yRatio === 0 ? 0 : -Math.sign(yRatio) * elbowStrength);
         }
-        if (horizontalAxis !== undefined) advance(horizontalAxis, xRatio * delta);
+        if (horizontalAxis !== undefined) setOffset(horizontalAxis, xRatio);
       } else {
-        advance(verticalAxis, yRatio * delta);
-        if (horizontalAxis !== undefined) advance(horizontalAxis, (group.invertHorizontal ? -xRatio : xRatio) * delta);
+        setOffset(verticalAxis, yRatio);
+        if (horizontalAxis !== undefined) setOffset(horizontalAxis, group.invertHorizontal ? -xRatio : xRatio);
       }
       state.positions = next;
       send(state, { type: "set-target", positions: next });
@@ -177,9 +175,8 @@ const ManualControl: m.Component = {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", stop);
       window.removeEventListener("pointercancel", stop);
-      if (joystickFrame !== null) window.cancelAnimationFrame(joystickFrame);
-      joystickFrame = null;
       state.activeJoystick = null;
+      delete state.joystickBases[group.name];
       state.joystickRatios[group.name] = [0, 0];
       m.redraw();
     };
@@ -191,21 +188,13 @@ const ManualControl: m.Component = {
         const xRatio = group.axes.length === 1 ? 0 : Math.min(1, Math.max(-1, (nextEvent.clientX - (bounds.left + bounds.width / 2)) / (bounds.width / 2)));
         const yRatio = Math.min(1, Math.max(-1, (nextEvent.clientY - (bounds.top + bounds.height / 2)) / (bounds.height / 2)));
         state.joystickRatios[group.name] = [xRatio, yRatio];
-        m.redraw();
+        applyJoystickTarget(group);
       };
       const stop = (): void => stopGroupJog(group, move, stop);
       event.preventDefault();
       state.activeJoystick = group.name;
+      state.joystickBases[group.name] = { ...state.positions };
       state.joystickRatios[group.name] = [0, 0];
-      lastJoystickFrameAt = performance.now();
-      const frame = (now: number): void => {
-        if (state.activeJoystick !== group.name) return;
-        const elapsedSeconds = Math.min(.05, Math.max(0, (now - lastJoystickFrameAt) / 1000));
-        lastJoystickFrameAt = now;
-        applyJoystickControl(group, elapsedSeconds);
-        joystickFrame = window.requestAnimationFrame(frame);
-      };
-      joystickFrame = window.requestAnimationFrame(frame);
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", stop, { once: true });
       window.addEventListener("pointercancel", stop, { once: true });
@@ -228,8 +217,7 @@ const ManualControl: m.Component = {
       state.error === null ? null : m("p.so101-error", state.error),
       bridge === null ? m("p", "Start the bridge, then connect.") : m("div.so101-control-surface", [
         m("div.so101-jog-toolbar", [
-          m("span", "Hold the center nub and drag. Distance from center controls speed."),
-          m("label", ["Max speed", m("select", { value: state.jogSpeed, disabled: !bridge.enabled, onchange: (event: Event) => { state.jogSpeed = Number((event.target as HTMLSelectElement).value); } }, [5, 10, 20, 40, 80].map((speed) => m("option", { value: speed }, `${speed}°/s`)))])
+          m("span", "Drag from center. The nub maps directly to joint position and returns on release.")
         ]),
         m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => {
           const axes: readonly JointName[] = group.axes;
@@ -262,7 +250,7 @@ const ManualControl: m.Component = {
             oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value),
           }),
         ]),
-        m("small.so101-jog-hint", `Shoulder + elbow: X pans. Inner zone: below flexes shoulder, above extends. Outer zone: below flexes elbow, above extends. Release to stop. Release to stop. Max speed: ${state.jogSpeed}°/s.`),
+        m("small.so101-jog-hint", `Shoulder + elbow: X pans. Inner zone: below flexes shoulder, above extends. Outer zone: below flexes elbow, above extends. Release to stop.`),
         m("details.so101-config", { open: state.configOpen, ontoggle: (event: Event) => { state.configOpen = (event.target as HTMLDetailsElement).open; } }, [
           m("summary", "Configuration: caps and sliders"),
           m("div.so101-joints", [
