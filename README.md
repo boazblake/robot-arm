@@ -23,6 +23,29 @@ npm ci
 npm run dev
 ```
 
+### SO-101 manual control
+
+Start the bridge in dry-run mode first:
+
+```sh
+python scripts/so101-bridge.py
+```
+
+The web app connects to `ws://127.0.0.1:8765`. Dry-run mode never opens the
+robot serial port. Only start live mode after confirming the arm is clear and
+ready:
+
+```sh
+python scripts/so101-bridge.py \\
+  --port /dev/tty.usbmodem5B790163741 \\
+  --robot-id my_so101_arm \\
+  --live
+```
+
+The app starts disabled. Connect the bridge, connect the robot, and explicitly
+enable control before moving a joint. `STOP` disconnects the robot and the
+bridge disables control after 500 ms without a target.
+
 The bounded development health check starts the server on port 4173, verifies
 `GET http://127.0.0.1:4173/` returns HTTP 200 within 10 seconds, and terminates it:
 

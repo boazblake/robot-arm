@@ -1,0 +1,15 @@
+.so101-manual-control { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid #334155; border-radius: 1rem; background: #0f172a; color: #e2e8f0; }
+.so101-manual-control header, .so101-actions, .so101-joint-heading { display: flex; align-items: center; gap: .75rem; }
+.so101-manual-control header { justify-content: space-between; }
+.so101-safety { margin: 0; color: #fbbf24; font-size: .85rem; }
+.so101-actions { flex-wrap: wrap; }
+.so101-actions button, .so101-cap-actions button { padding: .45rem .7rem; }
+.so101-stop { background: #b91c1c; color: white; font-weight: 700; }
+.so101-joints { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .75rem; }
+.so101-joint { display: grid; gap: .45rem; padding: .8rem; border: 1px solid #334155; border-radius: .75rem; background: #111827; }
+.so101-joint-heading { justify-content: space-between; }
+.so101-joint output { color: #7dd3fc; font-variant-numeric: tabular-nums; }
+.so101-joint input { width: 100%; }
+.so101-joint small { color: #94a3b8; }
+.so101-cap-actions { display: flex; gap: .4rem; }
+.so101-error { color: #fca5a5; }

@@ -26,6 +26,8 @@
           pkgs.libiconv
         ];
 
+        python = pkgs.python312;
+
       in {
         devShells.default = pkgs.mkShellNoCC {
           buildInputs = [
@@ -34,6 +36,8 @@
             pkgs.mkcert
             pkgs.nodePackages.npm
             pkgs.git
+            python
+            pkgs.uv
             geminiScript
           ] ++ darwinTools;
 
@@ -44,6 +48,16 @@
             export DEVELOPER_DIR="$(xcode-select -p)"
             export SDKROOT=$(xcrun --sdk iphoneos --show-sdk-path)
             export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/nix/store/.*/clang' | tr '\n' ':')
+
+            # LeRobot is not packaged in the pinned nixpkgs revision. Keep its
+            # Python dependencies isolated while making the CLI available in
+            # this dev shell.
+            if [ ! -x .venv/bin/lerobot-info ]; then
+              echo "Installing LeRobot into the project virtual environment..."
+              uv venv --python ${python}/bin/python .venv
+              uv pip install --python .venv/bin/python 'lerobot[core_scripts,feetech]' websockets
+            fi
+            export PATH="$PWD/.venv/bin:$PATH"
 
             echo "Using Clang: $(clang --version | head -n 1)"
 
