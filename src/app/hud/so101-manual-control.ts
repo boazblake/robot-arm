@@ -54,7 +54,7 @@ const stopHeartbeat = (): void => {
 const startHeartbeat = (): void => {
   if (heartbeatTimer !== null) return;
   heartbeatTimer = window.setInterval(() => {
-    if (state.bridge?.enabled && state.activeJoystick === null) send(state, { type: "set-target", positions: state.positions });
+    if (state.bridge?.enabled) send(state, { type: "set-target", positions: state.positions });
   }, 100);
 };
 const syncHeartbeat = (): void => {
@@ -81,6 +81,11 @@ const ManualControl: m.Component = {
           logEvent("bridge-state", { connected: next.connected, enabled: next.enabled, live: next.live });
         } else if (error !== null) {
           state.error = error.message;
+          if (error.message.includes("disconnected") || error.message.includes("control is disabled")) {
+            state.bridge = state.bridge === null ? null : { ...state.bridge, connected: false, enabled: false };
+            state.activeJoystick = null;
+            stopHeartbeat();
+          }
           logEvent("bridge-error", { message: error.message });
         }
         m.redraw();
