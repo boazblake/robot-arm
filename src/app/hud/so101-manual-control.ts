@@ -72,6 +72,8 @@ const state: ComponentState = {
 };
 let heartbeatTimer: number | null = null;
 let capCommitTimer: number | null = null;
+let setupRequestTimer: number | null = null;
+const SETUP_REQUEST_TIMEOUT_MS = 1000;
 
 const send = (message: Readonly<Record<string, unknown>>): void => {
   if (state.socket?.readyState === WebSocket.OPEN) state.socket.send(JSON.stringify(message));
@@ -97,6 +99,22 @@ const startHeartbeat = (): void => {
 const syncHeartbeat = (): void => {
   if (state.bridge?.enabled) startHeartbeat();
   else stopHeartbeat();
+};
+const clearSetupRequestTimer = (): void => {
+  if (setupRequestTimer !== null) window.clearTimeout(setupRequestTimer);
+  setupRequestTimer = null;
+};
+const armSetupRequestTimer = (): void => {
+  clearSetupRequestTimer();
+  setupRequestTimer = window.setTimeout(() => {
+    setupRequestTimer = null;
+    if (!state.setupPending) return;
+    state.setupPending = false;
+    state.pendingCaps = null;
+    state.pendingCapRequest = null;
+    state.error = "Bridge request timed out";
+    m.redraw();
+  }, SETUP_REQUEST_TIMEOUT_MS);
 };
 const clamp = (value: number, range: readonly [number, number]): number =>
   Math.min(range[1], Math.max(range[0], value));
@@ -127,6 +145,7 @@ const queueCapCommit = (bridge: BridgeState): void => {
     state.setupPending = true;
     state.pendingCapRequest = state.pendingCaps;
     send({ type: "set-caps", caps: state.pendingCaps });
+    armSetupRequestTimer();
     m.redraw();
   }, 200);
 };
@@ -149,6 +168,7 @@ const connectBridge = (): void => {
     const next = parseState(value);
     const error = parseError(value);
     if (next !== null) {
+      clearSetupRequestTimer();
       const wasPreviewing = state.view === "preview";
       state.bridge = next;
       state.setupPending = false;
@@ -166,6 +186,7 @@ const connectBridge = (): void => {
       syncHeartbeat();
       logEvent("bridge-state", { connected: next.connected, enabled: next.enabled, live: next.live });
     } else if (error !== null) {
+      clearSetupRequestTimer();
       const hadPendingCapRequest = state.pendingCapRequest !== null;
       state.setupPending = false;
       if (hadPendingCapRequest) state.pendingCaps = null;
@@ -190,6 +211,7 @@ const connectBridge = (): void => {
     if (state.socket !== socket) return;
     if (capCommitTimer !== null) window.clearTimeout(capCommitTimer);
     capCommitTimer = null;
+    clearSetupRequestTimer();
     state.setupPending = false;
     state.pendingCaps = null;
     state.pendingCapRequest = null;
@@ -245,6 +267,7 @@ const captureCap = (joint: JointName, end: CapEnd): void => {
   state.setupPending = true;
   logEvent("joint-cap-captured", { joint, end, value: current });
   send({ type: "set-caps", caps });
+  armSetupRequestTimer();
   m.redraw();
 };
 const refreshArmPosition = (): void => {
@@ -253,6 +276,7 @@ const refreshArmPosition = (): void => {
   state.setupPending = true;
   logEvent("bridge-position-refresh-requested");
   send({ type: "refresh" });
+  armSetupRequestTimer();
 };
 const resetCaps = (): void => {
   if (state.bridge === null || !state.bridge.connected || state.bridge.enabled || state.setupPending) return;
@@ -264,6 +288,7 @@ const resetCaps = (): void => {
   state.error = null;
   state.setupPending = true;
   send({ type: "set-caps", caps: state.bridge.calibration_limits });
+  armSetupRequestTimer();
 };
 
 const applyJoystickTarget = (group: JoystickGroup): void => {

@@ -169,6 +169,8 @@ class So101Bridge:
     async def enable_control(self, value: Any = None) -> None:
         if not self.state.connected:
             raise ValueError("connect before enabling control")
+        if self.state.enabled:
+            raise ValueError("control is already enabled")
         positions = self._validate_positions(self.state.positions if value is None else value)
         if self.live:
             action = {f"{joint}.pos": position for joint, position in positions.items()}
@@ -184,14 +186,15 @@ class So101Bridge:
     async def watchdog(self) -> None:
         while True:
             await asyncio.sleep(0.1)
-            async with self.lock:
-                if (
-                    self.state.connected
-                    and self.state.enabled
-                    and time.monotonic() - self.state.last_command_at > STALE_AFTER_SECONDS
-                ):
-                    log_event("stale-timeout", age_seconds=time.monotonic() - self.state.last_command_at)
-                    await self.stop()
+            if (
+                self.state.connected
+                and self.state.enabled
+                and time.monotonic() - self.state.last_command_at > STALE_AFTER_SECONDS
+            ):
+                age_seconds = time.monotonic() - self.state.last_command_at
+                self.state.enabled = False
+                log_event("stale-timeout", age_seconds=age_seconds)
+                await self.disconnect()
 
     def snapshot(self) -> dict[str, Any]:
         return {
