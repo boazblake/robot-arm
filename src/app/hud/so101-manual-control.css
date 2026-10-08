@@ -25,10 +25,9 @@
 .so101-manual-control header, .so101-operator-bar, .so101-setup-heading, .so101-operation-heading, .so101-joint-heading { display: flex; align-items: center; gap: .75rem; }
 .so101-manual-control header, .so101-operator-bar, .so101-setup-heading, .so101-operation-heading { justify-content: space-between; }
 .so101-heading { display: grid; gap: .2rem; }
-.so101-heading small, .so101-manual-control small, .so101-manual-control label { color: var(--so101-dim); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
+.so101-manual-control label { color: var(--so101-dim); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
 .so101-heading h1, .so101-manual-control h2, .so101-manual-control p { margin: 0; }
 .so101-heading h1 { font-size: clamp(1.15rem, 3vw, 1.7rem); letter-spacing: -.04em; }
-.so101-manual-control h2 { font-size: 1rem; letter-spacing: -.03em; }
 .so101-operator-bar { flex-wrap: wrap; padding: .65rem 0; border-block: 1px solid var(--so101-rule); }
 .so101-actions, .so101-setup-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
 .so101-manual-control button { min-height: 2.5rem; padding: .55rem .8rem; border: 1px solid var(--so101-rule); border-radius: .3rem; background: var(--so101-panel); color: var(--so101-ink); font: inherit; font-size: .72rem; letter-spacing: .02em; cursor: pointer; }
@@ -38,8 +37,6 @@
 .so101-manual-control .so101-stop { border-color: var(--so101-danger); background: var(--so101-danger); color: #fff; font-weight: 700; }
 .so101-manual-control .so101-primary { border-color: var(--so101-signal); background: var(--so101-signal); color: #fff; }
 .so101-empty { display: grid; justify-items: start; gap: .55rem; padding: clamp(1rem, 4vw, 2rem); border: 1px dashed var(--so101-rule); background: var(--so101-panel); }
-.so101-empty strong { font-size: 1rem; }
-.so101-empty p { max-width: 48rem; color: var(--so101-dim); font: .78rem/1.45 ui-sans-serif, system-ui, sans-serif; }
 .so101-error { margin: 0; padding: .65rem .75rem; border-left: .2rem solid var(--so101-danger); background: #fbe9e6; color: #76281e; font: .78rem/1.35 ui-sans-serif, system-ui, sans-serif; }
 .so101-control-surface { display: grid; gap: 1rem; }
 .so101-setup { display: grid; gap: 1rem; }
@@ -54,7 +51,6 @@
 .so101-cap-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .35rem .5rem; }
 .so101-cap-inputs label { display: grid; grid-template-columns: 2.1rem 1fr; align-items: center; gap: .35rem; font-size: .58rem; }
 .so101-cap-inputs button { min-height: 1.8rem; padding: .25rem .45rem; font-size: .58rem; }
-.so101-cap-row > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .58rem; letter-spacing: 0; text-transform: none; }
 .so101-manual-control input[type="range"] { accent-color: var(--so101-signal); width: 100%; min-width: 0; }
 .so101-operation { display: grid; gap: .8rem; }
 .so101-joysticks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
@@ -71,7 +67,6 @@
 .so101-position-indicator { background: var(--so101-danger); box-shadow: 0 0 0 .18rem #fbe9e6; }
 .so101-joystick-knob { width: 2rem; height: 2rem; border: .35rem solid var(--so101-signal); background: var(--so101-panel); transition: left .15s ease-out, top .15s ease-out; }
 .so101-motion-cues { display: grid; justify-items: center; gap: .55rem; color: var(--so101-dim); text-align: center; }
-.so101-motion-cues small { font: .62rem/1.35 ui-sans-serif, system-ui, sans-serif; }
 .so101-motion-cue { position: relative; display: block; width: 7rem; height: 5rem; }
 .so101-arm-solid, .so101-arm-ghost, .so101-shoulder-solid, .so101-shoulder-ghost, .so101-elbow-solid, .so101-elbow-ghost { position: absolute; display: block; border-radius: 1rem; transform-origin: left center; }
 .so101-arm-solid, .so101-arm-ghost { top: 2.3rem; left: 1.25rem; width: 4.5rem; height: .7rem; transform: rotate(-22deg); }

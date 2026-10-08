@@ -297,7 +297,6 @@ const directionCue = (bridge: BridgeState, group: JoystickGroup): m.Children => 
     m("span.so101-motion-cue", [m("span.so101-arm-solid", { style: { transform: `rotate(${armAngle}deg)` } }), m("span.so101-arm-ghost", ghost(armAngle, horizontal + shoulderMove, 18))]),
     m("span.so101-motion-cue", [m("span.so101-shoulder-solid", { style: { transform: `rotate(${shoulderAngle}deg)` } }), m("span.so101-shoulder-ghost", ghost(shoulderAngle, shoulderMove, 28))]),
     m("span.so101-motion-cue", [m("span.so101-elbow-solid", { style: { transform: `rotate(${elbowAngle}deg)` } }), m("span.so101-elbow-ghost", ghost(elbowAngle, elbowMove, 44))]),
-    m("small", group.zoned === undefined ? "solid = current · ghost = expected" : "solid = now · ghost = result"),
   ]);
 };
 const joystickCard = (bridge: BridgeState, group: JoystickGroup): m.Vnode => {
@@ -345,11 +344,10 @@ const capRow = (bridge: BridgeState, joint: JointName): m.Vnode => {
     ]),
     m("div.so101-cap-inputs", [
       m("label", ["LOW", m("input", { type: "range", min: fullRange[0], max: fullRange[1], step: 0.1, value: caps[0], disabled: !canConfigure, oninput: (event: Event) => updateCap(joint, "min", (event.target as HTMLInputElement).value) })]),
-      m("button", { disabled: !canConfigure, onclick: () => captureCap(joint, "min") }, "Capture low"),
-      m("button", { disabled: !canConfigure, onclick: () => captureCap(joint, "max") }, "Capture high"),
+      m("button", { disabled: !canConfigure, onclick: () => captureCap(joint, "min") }, "LOW"),
+      m("button", { disabled: !canConfigure, onclick: () => captureCap(joint, "max") }, "HIGH"),
       m("label", ["HIGH", m("input", { type: "range", min: fullRange[0], max: fullRange[1], step: 0.1, value: caps[1], disabled: !canConfigure, oninput: (event: Event) => updateCap(joint, "max", (event.target as HTMLInputElement).value) })]),
     ]),
-    m("small", `caps ${caps[0].toFixed(1)} … ${caps[1].toFixed(1)} · hardware ${fullRange[0].toFixed(1)} … ${fullRange[1].toFixed(1)}`),
   ]);
 };
 
@@ -358,7 +356,7 @@ const ManualControl: m.Component = {
     const bridge = state.bridge;
     const ready = bridge?.connected === true;
     return m("section.so101-manual-control", [
-      m("header", [m("div.so101-heading", [m("small", "TELEOPERATION / MOBILE CONTROL"), m("h1", "SO—101")]), m("small", bridge?.live ? "LIVE / BRIDGE" : "DRY-RUN / BRIDGE")]),
+      m("header", [m("div.so101-heading", m("h1", "SO—101"))]),
       m("div.so101-operator-bar", [
         m("div.so101-actions", [
           m("button", { onclick: connectBridge }, "Connect bridge"),
@@ -367,13 +365,13 @@ const ManualControl: m.Component = {
         ]),
       ]),
       state.error === null ? null : m("p.so101-error", { role: "alert" }, state.error),
-      bridge === null ? m("div.so101-empty", [m("strong", "Connect the local bridge"), m("p", "Setup stays disabled until the bridge and robot report state."), m("button", { onclick: connectBridge }, "Connect bridge")]) : m("div.so101-control-surface", [
+      bridge === null ? m("div.so101-empty", m("button", { onclick: connectBridge }, "Connect bridge")) : m("div.so101-control-surface", [
         state.view === "setup" ? m("section.so101-setup", [
-          m("div.so101-setup-heading", [m("div", [m("small", "CONTROL DISABLED"), m("h2", "Capture safe travel")]), m("button", { disabled: !bridge.connected || bridge.enabled, onclick: refreshArmPosition }, "Sync arm position")]),
+          m("div.so101-setup-heading", m("button", { disabled: !bridge.connected || bridge.enabled, onclick: refreshArmPosition }, "Sync")),
           m("div.so101-cap-grid", JOINTS.map((joint) => capRow(bridge, joint))),
-          m("div.so101-setup-actions", [m("button", { disabled: !bridge.connected || bridge.enabled, onclick: resetCaps }, "Reset caps"), m("button.so101-primary", { disabled: !ready || bridge.enabled, onclick: () => setView("preview") }, "Review movement →")]),
+          m("div.so101-setup-actions", [m("button", { disabled: !bridge.connected || bridge.enabled, onclick: resetCaps }, "Reset"), m("button.so101-primary", { disabled: !ready || bridge.enabled, onclick: () => setView("preview") }, "Review →")]),
         ]) : m("section.so101-operation", [
-          m("div.so101-operation-heading", [m("div", [m("small", state.view === "preview" ? "NO TARGET" : "TARGET LIVE"), m("h2", state.view === "preview" ? "Preview the arm" : "Control is armed")]), m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable" }) }, "Enable control") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])]),
+          m("div.so101-operation-heading", m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable" }) }, "Enable") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])),
           m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => joystickCard(bridge, group))),
           m("label.so101-gripper-slider", [m("div.so101-joint-heading", [m("strong", "Gripper"), m("output", displayedPositions().gripper.toFixed(1))]), m("input", { type: "range", min: bridge.limits.gripper[0], max: bridge.limits.gripper[1], step: 0.1, value: displayedPositions().gripper, disabled: state.view === "control" ? !bridge.enabled : false, oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value) })]),
         ]),
