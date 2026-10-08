@@ -1,9 +1,18 @@
 import m from "mithril";
 import "./so101-manual-control.css";
 import { logEvent } from "../../observability/effect-logger";
+import { captureCap as captureCapValue, updateCap as updateCapValue } from "./so101-manual-control-policy";
 
 type JointName = "shoulder_pan" | "shoulder_lift" | "elbow_flex" | "wrist_flex" | "wrist_roll" | "gripper";
-type JoystickGroup = Readonly<{ readonly name: string; readonly axes: readonly [JointName] | readonly [JointName, JointName]; readonly zoned?: JointName; readonly invertHorizontal?: boolean }>;
+type JoystickGroup = Readonly<{
+  readonly name: string;
+  readonly axes: readonly [JointName] | readonly [JointName, JointName];
+  readonly zoned?: JointName;
+  readonly invertHorizontal?: boolean;
+}>;
+type ManualView = "setup" | "preview" | "control";
+type CapEnd = "min" | "max";
+
 type BridgeState = Readonly<{
   readonly type: "state";
   readonly connected: boolean;
@@ -15,7 +24,17 @@ type BridgeState = Readonly<{
   readonly positions: Readonly<Record<JointName, number>>;
 }>;
 type BridgeError = Readonly<{ readonly type: "error"; readonly message: string }>;
-type ComponentState = { socket: WebSocket | null; bridge: BridgeState | null; error: string | null; positions: Record<JointName, number>; configOpen: boolean; joystickRatios: Record<string, readonly [number, number]>; joystickBases: Record<string, Record<JointName, number>>; activeJoystick: string | null };
+type ComponentState = {
+  socket: WebSocket | null;
+  bridge: BridgeState | null;
+  error: string | null;
+  view: ManualView;
+  positions: Record<JointName, number>;
+  previewPositions: Record<JointName, number>;
+  joystickRatios: Record<string, readonly [number, number]>;
+  joystickBases: Record<string, Record<JointName, number>>;
+  activeJoystick: string | null;
+};
 
 const JOINT_LABELS: Readonly<Record<JointName, string>> = {
   shoulder_pan: "Shoulder pan",
@@ -31,9 +50,23 @@ const JOYSTICK_GROUPS: readonly JoystickGroup[] = [
   { name: "Wrist", axes: ["wrist_flex", "wrist_roll"], invertHorizontal: true },
 ];
 const bridgeUrl = (): string => import.meta.env.VITE_SO101_BRIDGE_URL ?? "ws://127.0.0.1:8765";
-const initialPositions = (): Record<JointName, number> => Object.fromEntries(JOINTS.map((joint) => [joint, 0])) as Record<JointName, number>;
+const initialPositions = (): Record<JointName, number> =>
+  Object.fromEntries(JOINTS.map((joint) => [joint, 0])) as Record<JointName, number>;
 
-const send = (state: ComponentState, message: Readonly<Record<string, unknown>>): void => {
+const state: ComponentState = {
+  socket: null,
+  bridge: null,
+  error: null,
+  view: "setup",
+  positions: initialPositions(),
+  previewPositions: initialPositions(),
+  joystickRatios: {},
+  joystickBases: {},
+  activeJoystick: null,
+};
+let heartbeatTimer: number | null = null;
+
+const send = (message: Readonly<Record<string, unknown>>): void => {
   if (state.socket?.readyState === WebSocket.OPEN) state.socket.send(JSON.stringify(message));
 };
 const parseState = (value: unknown): BridgeState | null => {
@@ -44,9 +77,6 @@ const parseError = (value: unknown): BridgeError | null => {
   if (typeof value !== "object" || value === null || (value as { type?: unknown }).type !== "error") return null;
   return value as BridgeError;
 };
-
-const state: ComponentState = { socket: null, bridge: null, error: null, positions: initialPositions(), configOpen: false, joystickRatios: {}, joystickBases: {}, activeJoystick: null };
-let heartbeatTimer: number | null = null;
 const stopHeartbeat = (): void => {
   if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
   heartbeatTimer = null;
@@ -54,241 +84,289 @@ const stopHeartbeat = (): void => {
 const startHeartbeat = (): void => {
   if (heartbeatTimer !== null) return;
   heartbeatTimer = window.setInterval(() => {
-    if (state.bridge?.enabled) send(state, { type: "set-target", positions: state.positions });
+    if (state.bridge?.enabled && state.view === "control") send({ type: "set-target", positions: state.positions });
   }, 100);
 };
 const syncHeartbeat = (): void => {
   if (state.bridge?.enabled) startHeartbeat();
   else stopHeartbeat();
 };
+const clamp = (value: number, range: readonly [number, number]): number =>
+  Math.min(range[1], Math.max(range[0], value));
+const copyCaps = (bridge: BridgeState): Record<JointName, [number, number]> =>
+  Object.fromEntries(JOINTS.map((joint) => [joint, [...bridge.limits[joint]]])) as Record<JointName, [number, number]>;
+const displayedPositions = (): Record<JointName, number> =>
+  state.view === "preview" ? state.previewPositions : state.positions;
+const setDisplayedPosition = (joint: JointName, value: number): void => {
+  if (state.view === "preview") state.previewPositions = { ...state.previewPositions, [joint]: value };
+  else state.positions = { ...state.positions, [joint]: value };
+};
+const setView = (view: ManualView): void => {
+  state.view = view;
+  if (view === "preview") state.previewPositions = { ...state.positions };
+  if (view !== "control") {
+    state.activeJoystick = null;
+    state.joystickBases = {};
+    state.joystickRatios = {};
+  }
+};
+
+const connectBridge = (): void => {
+  logEvent("bridge-connect-requested", { url: bridgeUrl() });
+  state.socket?.close();
+  const socket = new WebSocket(bridgeUrl());
+  state.socket = socket;
+  socket.onopen = () => logEvent("bridge-websocket-open");
+  socket.onmessage = (event) => {
+    const value: unknown = JSON.parse(String(event.data));
+    const next = parseState(value);
+    const error = parseError(value);
+    if (next !== null) {
+      state.bridge = next;
+      if (state.activeJoystick === null) state.positions = { ...state.positions, ...next.positions };
+      if (!next.connected) setView("setup");
+      else if (next.enabled) setView("control");
+      else if (state.view === "control") setView("preview");
+      state.error = null;
+      syncHeartbeat();
+      logEvent("bridge-state", { connected: next.connected, enabled: next.enabled, live: next.live });
+    } else if (error !== null) {
+      state.error = error.message;
+      if (error.message.includes("disconnected") || error.message.includes("control is disabled")) {
+        state.bridge = state.bridge === null ? null : { ...state.bridge, connected: false, enabled: false };
+        setView("setup");
+        stopHeartbeat();
+      }
+      logEvent("bridge-error", { message: error.message });
+    }
+    m.redraw();
+  };
+  socket.onerror = () => { state.error = "Bridge unavailable"; logEvent("bridge-websocket-error"); m.redraw(); };
+  socket.onclose = () => { state.bridge = null; setView("setup"); stopHeartbeat(); logEvent("bridge-websocket-closed"); m.redraw(); };
+};
+
+const setPosition = (joint: JointName, raw: string): void => {
+  const bridge = state.bridge;
+  if (bridge === null) return;
+  const value = clamp(Number(raw), bridge.limits[joint]);
+  setDisplayedPosition(joint, value);
+  logEvent("joint-slider-changed", { joint, value });
+  if (bridge.enabled && state.view === "control") send({ type: "set-target", positions: state.positions });
+};
+const updateCap = (joint: JointName, end: CapEnd, raw: string): void => {
+  const bridge = state.bridge;
+  if (bridge === null || !bridge.connected || bridge.enabled) return;
+  const fullRange = bridge.calibration_limits[joint];
+  const caps = copyCaps(bridge);
+  const value = Number(raw);
+  const result = updateCapValue(caps[joint], fullRange, end, value);
+  if (!result.ok) {
+    state.error = result.reason === "empty-range" ? `${JOINT_LABELS[joint]} caps must leave a usable range` : `${JOINT_LABELS[joint]} cap must be numeric`;
+    return;
+  }
+  caps[joint] = result.caps;
+  state.bridge = { ...bridge, limits: caps };
+  state.error = null;
+  logEvent("joint-cap-changed", { joint, end, value });
+  send({ type: "set-caps", caps });
+  m.redraw();
+};
+const captureCap = (joint: JointName, end: CapEnd): void => {
+  const bridge = state.bridge;
+  if (bridge === null || !bridge.connected || bridge.enabled) return;
+  const current = displayedPositions()[joint];
+  const caps = copyCaps(bridge);
+  const result = captureCapValue(caps[joint], current, end);
+  if (!result.ok) {
+    state.error = end === "min" ? `${JOINT_LABELS[joint]} low capture must be below its high cap` : `${JOINT_LABELS[joint]} high capture must be above its low cap`;
+    return;
+  }
+  caps[joint] = result.caps;
+  state.bridge = { ...bridge, limits: caps };
+  state.error = null;
+  logEvent("joint-cap-captured", { joint, end, value: current });
+  send({ type: "set-caps", caps });
+  m.redraw();
+};
+const refreshArmPosition = (): void => {
+  if (state.bridge === null || !state.bridge.connected || state.bridge.enabled) return;
+  state.error = null;
+  logEvent("bridge-position-refresh-requested");
+  send({ type: "refresh" });
+};
+const resetCaps = (): void => {
+  if (state.bridge === null || !state.bridge.connected || state.bridge.enabled) return;
+  logEvent("joint-caps-reset");
+  state.error = null;
+  send({ type: "set-caps", caps: state.bridge.calibration_limits });
+};
+
+const applyJoystickTarget = (group: JoystickGroup): void => {
+  const bridge = state.bridge;
+  const base = state.joystickBases[group.name];
+  if (bridge === null || base === undefined || (state.view === "control" && !bridge.enabled)) return;
+  const [xRatio, yRatio] = state.joystickRatios[group.name] ?? [0, 0];
+  const [verticalAxis, horizontalAxis] = group.axes;
+  const next = { ...displayedPositions() };
+  const setOffset = (joint: JointName, ratio: number): void => {
+    const caps = bridge.limits[joint];
+    const halfRange = (caps[1] - caps[0]) / 2;
+    next[joint] = clamp(base[joint] + ratio * halfRange, caps);
+  };
+  if (group.zoned !== undefined) {
+    const radius = Math.min(1, Math.hypot(xRatio, yRatio));
+    const innerZone = 0.5;
+    if (radius <= innerZone) setOffset(verticalAxis, -yRatio / innerZone);
+    else setOffset(group.zoned, yRatio === 0 ? 0 : -Math.sign(yRatio) * ((radius - innerZone) / (1 - innerZone)));
+    if (horizontalAxis !== undefined) setOffset(horizontalAxis, xRatio);
+  } else {
+    setOffset(verticalAxis, yRatio);
+    if (horizontalAxis !== undefined) setOffset(horizontalAxis, group.invertHorizontal ? -xRatio : xRatio);
+  }
+  if (state.view === "preview") state.previewPositions = next;
+  else state.positions = next;
+  if (state.view === "control") send({ type: "set-target", positions: next });
+  m.redraw();
+};
+const nudgeJoystick = (group: JoystickGroup, key: string): void => {
+  const bridge = state.bridge;
+  if (bridge === null || state.view === "setup" || (state.view === "control" && !bridge.enabled)) return;
+  state.joystickBases[group.name] = { ...displayedPositions() };
+  const [x, y] = state.joystickRatios[group.name] ?? [0, 0];
+  const step = 0.08;
+  const next: readonly [number, number] = key === "ArrowLeft" ? [x - step, y]
+    : key === "ArrowRight" ? [x + step, y]
+      : key === "ArrowUp" ? [x, y - step]
+        : [x, y + step];
+  state.joystickRatios[group.name] = [clamp(next[0], [-1, 1]), clamp(next[1], [-1, 1])];
+  applyJoystickTarget(group);
+};
+const stopGroupJog = (group: JoystickGroup, move: (event: PointerEvent) => void, stop: () => void): void => {
+  window.removeEventListener("pointermove", move);
+  window.removeEventListener("pointerup", stop);
+  window.removeEventListener("pointercancel", stop);
+  state.activeJoystick = null;
+  delete state.joystickBases[group.name];
+  state.joystickRatios[group.name] = [0, 0];
+  m.redraw();
+};
+const startGroupJog = (group: JoystickGroup, event: PointerEvent): void => {
+  const bridge = state.bridge;
+  if (bridge === null || state.view === "setup" || (state.view === "control" && !bridge.enabled)) return;
+  const joystick = event.currentTarget as HTMLElement;
+  const move = (nextEvent: PointerEvent): void => {
+    const bounds = joystick.getBoundingClientRect();
+    const xRatio = group.axes.length === 1 ? 0 : clamp((nextEvent.clientX - (bounds.left + bounds.width / 2)) / (bounds.width / 2), [-1, 1]);
+    const yRatio = clamp((nextEvent.clientY - (bounds.top + bounds.height / 2)) / (bounds.height / 2), [-1, 1]);
+    state.joystickRatios[group.name] = [xRatio, yRatio];
+    applyJoystickTarget(group);
+  };
+  const stop = (): void => stopGroupJog(group, move, stop);
+  event.preventDefault();
+  state.activeJoystick = group.name;
+  state.joystickBases[group.name] = { ...displayedPositions() };
+  state.joystickRatios[group.name] = [0, 0];
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop, { once: true });
+  window.addEventListener("pointercancel", stop, { once: true });
+};
+
+const statusPip = (label: string, active: boolean, kind: "ok" | "armed" | "quiet"): m.Vnode =>
+  m("span", { class: `so101-status-pip ${kind} ${active ? "is-active" : "is-idle"}` }, [m("i"), label]);
+const capPercent = (value: number, range: readonly [number, number]): string =>
+  `${((value - range[0]) / (range[1] - range[0])) * 100}%`;
+const directionCue = (group: JoystickGroup): m.Children =>
+  m("div.so101-motion-cues", { "aria-label": "Expected arm movement" }, [
+    m("span.so101-motion-cue", [m("span.so101-arm-solid"), m("span.so101-arm-ghost")]),
+    m("span.so101-motion-cue", [m("span.so101-shoulder-solid"), m("span.so101-shoulder-ghost")]),
+    m("span.so101-motion-cue", [m("span.so101-elbow-solid"), m("span.so101-elbow-ghost")]),
+    m("small", group.zoned === undefined ? "solid = current · ghost = expected" : "solid = now · ghost = result"),
+  ]);
+const joystickCard = (bridge: BridgeState, group: JoystickGroup): m.Vnode => {
+  const positions = displayedPositions();
+  const [verticalAxis, horizontalAxis] = group.axes;
+  const verticalCaps = bridge.limits[verticalAxis] ?? bridge.calibration_limits[verticalAxis];
+  const horizontalCaps = horizontalAxis === undefined ? null : bridge.limits[horizontalAxis] ?? bridge.calibration_limits[horizontalAxis];
+  const positionY = (positions[verticalAxis] - verticalCaps[0]) / (verticalCaps[1] - verticalCaps[0]);
+  const positionX = horizontalAxis === undefined || horizontalCaps === null ? 0.5 : (positions[horizontalAxis] - horizontalCaps[0]) / (horizontalCaps[1] - horizontalCaps[0]);
+  const [activeX, activeY] = state.joystickRatios[group.name] ?? [0, 0];
+  const disabled = state.view === "setup" || (state.view === "control" && !bridge.enabled);
+  return m("article.so101-joystick-card", [
+    m("div.so101-joint-heading", [m("strong", group.name), m("span", [...group.axes, ...(group.zoned === undefined ? [] : [group.zoned])].map((axis) => `${JOINT_LABELS[axis]} ${positions[axis].toFixed(1)}`).join(" · "))]),
+    m("div.so101-joystick-layout", [
+      m("div.so101-joystick", {
+        onpointerdown: (event: PointerEvent) => startGroupJog(group, event),
+        role: "group",
+        tabindex: disabled ? -1 : 0,
+        "aria-label": `${group.name} direct position control; use arrow keys or touch; the adjacent arm diagram predicts movement`,
+        "aria-disabled": disabled,
+        onkeydown: (event: KeyboardEvent) => {
+          if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+          event.preventDefault();
+          nudgeJoystick(group, event.key);
+        },
+      }, [
+        m("span.so101-joystick-zone"),
+        m("span.so101-position-indicator", { style: { left: `${positionX * 100}%`, top: `${(1 - positionY) * 100}%` } }),
+        m("span.so101-joystick-knob", { style: { left: `${(horizontalAxis === undefined ? 0 : activeX) * 50 + 50}%`, top: `${50 + activeY * 50}%` } }),
+      ]),
+      directionCue(group),
+    ]),
+  ]);
+};
+const capRow = (bridge: BridgeState, joint: JointName): m.Vnode => {
+  const canConfigure = bridge.connected && !bridge.enabled;
+  const fullRange = bridge.calibration_limits[joint] ?? [-180, 180];
+  const caps = bridge.limits[joint] ?? fullRange;
+  const position = displayedPositions()[joint];
+  return m("article.so101-cap-row", [
+    m("div.so101-joint-heading", [m("strong", JOINT_LABELS[joint]), m("output", position.toFixed(1))]),
+    m("div.so101-cap-track", [
+      m("span.so101-cap-segment", { style: { left: capPercent(caps[0], fullRange), width: `${((caps[1] - caps[0]) / (fullRange[1] - fullRange[0])) * 100}%` } }),
+      m("span.so101-cap-current", { style: { left: capPercent(position, fullRange) } }),
+    ]),
+    m("div.so101-cap-inputs", [
+      m("label", ["LOW", m("input", { type: "range", min: fullRange[0], max: fullRange[1], step: 0.1, value: caps[0], disabled: !canConfigure, oninput: (event: Event) => updateCap(joint, "min", (event.target as HTMLInputElement).value) })]),
+      m("button", { disabled: !canConfigure, onclick: () => captureCap(joint, "min") }, "Capture low"),
+      m("button", { disabled: !canConfigure, onclick: () => captureCap(joint, "max") }, "Capture high"),
+      m("label", ["HIGH", m("input", { type: "range", min: fullRange[0], max: fullRange[1], step: 0.1, value: caps[1], disabled: !canConfigure, oninput: (event: Event) => updateCap(joint, "max", (event.target as HTMLInputElement).value) })]),
+    ]),
+    m("small", `caps ${caps[0].toFixed(1)} … ${caps[1].toFixed(1)} · hardware ${fullRange[0].toFixed(1)} … ${fullRange[1].toFixed(1)}`),
+  ]);
+};
+
 const ManualControl: m.Component = {
   view: () => {
-    const connect = (): void => {
-      logEvent("bridge-connect-requested", { url: bridgeUrl() });
-      state.socket?.close();
-      const socket = new WebSocket(bridgeUrl());
-      state.socket = socket;
-      socket.onopen = () => logEvent("bridge-websocket-open");
-      socket.onmessage = (event) => {
-        const value: unknown = JSON.parse(String(event.data));
-        const next = parseState(value);
-        const error = parseError(value);
-        if (next !== null) {
-          state.bridge = next;
-          if (state.activeJoystick === null) state.positions = { ...state.positions, ...next.positions };
-          state.error = null;
-          syncHeartbeat();
-          logEvent("bridge-state", { connected: next.connected, enabled: next.enabled, live: next.live });
-        } else if (error !== null) {
-          state.error = error.message;
-          if (error.message.includes("disconnected") || error.message.includes("control is disabled")) {
-            state.bridge = state.bridge === null ? null : { ...state.bridge, connected: false, enabled: false };
-            state.activeJoystick = null;
-            stopHeartbeat();
-          }
-          logEvent("bridge-error", { message: error.message });
-        }
-        m.redraw();
-      };
-      socket.onerror = () => { state.error = "Bridge unavailable"; logEvent("bridge-websocket-error"); m.redraw(); };
-      socket.onclose = () => { state.bridge = null; stopHeartbeat(); logEvent("bridge-websocket-closed"); m.redraw(); };
-    };
-    const setPosition = (joint: JointName, raw: string): void => {
-      state.positions = { ...state.positions, [joint]: Number(raw) };
-      logEvent("joint-slider-changed", { joint, value: state.positions[joint] });
-      if (state.bridge?.enabled) send(state, { type: "set-target", positions: state.positions });
-    };
-    const updateSlider = (joint: JointName, kind: "min" | "value" | "max", value: number): void => {
-      const currentBridge = state.bridge;
-      if (currentBridge === null) return;
-      const fullRange = currentBridge.calibration_limits[joint] ?? [-180, 180];
-      const caps = Object.fromEntries(JOINTS.map((name) => [name, [...currentBridge.limits[name]]])) as Record<JointName, [number, number]>;
-      const bounded = Math.min(fullRange[1], Math.max(fullRange[0], value));
-      if (kind === "value") {
-        const nextValue = Math.min(caps[joint][1], Math.max(caps[joint][0], bounded));
-        setPosition(joint, String(nextValue));
-        return;
-      }
-      if (currentBridge.enabled) return;
-      const nextCaps = kind === "min"
-        ? [Math.min(bounded, caps[joint][1] - 0.1), caps[joint][1]] as [number, number]
-        : [caps[joint][0], Math.max(bounded, caps[joint][0] + 0.1)] as [number, number];
-      caps[joint] = nextCaps;
-      state.bridge = { ...currentBridge, limits: caps };
-      logEvent("joint-cap-changed", { joint, kind, value: bounded });
-      send(state, { type: "set-caps", caps });
-      m.redraw();
-    };
-    const dragHandle = (joint: JointName, kind: "min" | "value" | "max", event: PointerEvent): void => {
-      const handle = event.currentTarget as HTMLElement;
-      const track = handle.parentElement;
-      if (track === null) return;
-      event.preventDefault();
-      const updateFromPointer = (move: PointerEvent): void => {
-        const bounds = track.getBoundingClientRect();
-        const ratio = Math.min(1, Math.max(0, (move.clientX - bounds.left) / bounds.width));
-        const range = state.bridge?.calibration_limits[joint] ?? [-180, 180];
-        updateSlider(joint, kind, range[0] + ratio * (range[1] - range[0]));
-      };
-      const stop = (): void => {
-        window.removeEventListener("pointermove", updateFromPointer);
-        window.removeEventListener("pointerup", stop);
-      };
-      window.addEventListener("pointermove", updateFromPointer);
-      window.addEventListener("pointerup", stop, { once: true });
-    };
-    const keyboardHandle = (joint: JointName, kind: "min" | "value" | "max", event: KeyboardEvent): void => {
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-      event.preventDefault();
-      const range = state.bridge?.calibration_limits[joint] ?? [-180, 180];
-      const direction = event.key === "ArrowRight" ? 1 : -1;
-      const step = (range[1] - range[0]) / 100;
-      const current = kind === "value" ? state.positions[joint] : state.bridge?.limits[joint][kind === "min" ? 0 : 1] ?? range[0];
-      updateSlider(joint, kind, current + direction * step);
-    };
-    const applyJoystickTarget = (group: JoystickGroup): void => {
-      const currentBridge = state.bridge;
-      const base = state.joystickBases[group.name];
-      if (currentBridge === null || !currentBridge.enabled || base === undefined) return;
-      const [xRatio, yRatio] = state.joystickRatios[group.name] ?? [0, 0];
-      const [verticalAxis, horizontalAxis] = group.axes;
-      const next = { ...state.positions };
-      const setOffset = (joint: JointName, ratio: number): void => {
-        const caps = currentBridge.limits[joint];
-        const halfRange = (caps[1] - caps[0]) / 2;
-        next[joint] = Math.min(caps[1], Math.max(caps[0], base[joint] + ratio * halfRange));
-      };
-      if (group.zoned !== undefined) {
-        const radius = Math.min(1, Math.hypot(xRatio, yRatio));
-        const innerZone = 0.5;
-        if (radius <= innerZone) {
-          setOffset(verticalAxis, -yRatio / innerZone);
-        } else {
-          const elbowStrength = (radius - innerZone) / (1 - innerZone);
-          setOffset(group.zoned, yRatio === 0 ? 0 : -Math.sign(yRatio) * elbowStrength);
-        }
-        if (horizontalAxis !== undefined) setOffset(horizontalAxis, xRatio);
-      } else {
-        setOffset(verticalAxis, yRatio);
-        if (horizontalAxis !== undefined) setOffset(horizontalAxis, group.invertHorizontal ? -xRatio : xRatio);
-      }
-      state.positions = next;
-      send(state, { type: "set-target", positions: next });
-      m.redraw();
-    };
-    const stopGroupJog = (group: JoystickGroup, move: (event: PointerEvent) => void, stop: () => void): void => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", stop);
-      window.removeEventListener("pointercancel", stop);
-      state.activeJoystick = null;
-      delete state.joystickBases[group.name];
-      state.joystickRatios[group.name] = [0, 0];
-      m.redraw();
-    };
-    const startGroupJog = (group: JoystickGroup, event: PointerEvent): void => {
-      if (state.bridge === null || !state.bridge.enabled) return;
-      const joystick = event.currentTarget as HTMLElement;
-      const move = (nextEvent: PointerEvent): void => {
-        const bounds = joystick.getBoundingClientRect();
-        const xRatio = group.axes.length === 1 ? 0 : Math.min(1, Math.max(-1, (nextEvent.clientX - (bounds.left + bounds.width / 2)) / (bounds.width / 2)));
-        const yRatio = Math.min(1, Math.max(-1, (nextEvent.clientY - (bounds.top + bounds.height / 2)) / (bounds.height / 2)));
-        state.joystickRatios[group.name] = [xRatio, yRatio];
-        applyJoystickTarget(group);
-      };
-      const stop = (): void => stopGroupJog(group, move, stop);
-      event.preventDefault();
-      state.activeJoystick = group.name;
-      state.joystickBases[group.name] = { ...state.positions };
-      state.joystickRatios[group.name] = [0, 0];
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", stop, { once: true });
-      window.addEventListener("pointercancel", stop, { once: true });
-    };
-    const resetCaps = (): void => {
-      if (state.bridge === null || state.bridge.enabled) return;
-      logEvent("joint-caps-reset");
-      send(state, { type: "set-caps", caps: state.bridge.calibration_limits });
-    };
     const bridge = state.bridge;
+    const ready = bridge?.connected === true;
     return m("section.so101-manual-control", [
-      m("header", [m("div.so101-heading", [m("small", "TELEOPERATION / MANUAL OVERRIDE"), m("h1", "SO—101")]), m("small", bridge?.live ? "LIVE / BRIDGE" : "DRY-RUN / BRIDGE")]),
-      m("p.so101-safety", "Set caps while disabled. Enable control only when the arm is clear."),
-      m("div.so101-actions", [
-        m("button", { onclick: connect }, "Connect bridge"),
-        m("button", { disabled: bridge === null, onclick: () => { logEvent("robot-connect-requested"); send(state, { type: "connect" }); } }, "Connect robot"),
-        m("button", { disabled: bridge === null || !bridge.connected, onclick: () => { const type = bridge?.enabled ? "disable" : "enable"; logEvent(type === "enable" ? "control-enable-requested" : "control-disable-requested"); send(state, { type }); } }, bridge?.enabled ? "Disable control" : "Enable control"),
-        m("button.so101-stop", { disabled: bridge === null, onclick: () => { logEvent("stop-requested"); send(state, { type: "stop" }); } }, "STOP"),
+      m("header", [m("div.so101-heading", [m("small", "TELEOPERATION / MOBILE CONTROL"), m("h1", "SO—101")]), m("small", bridge?.live ? "LIVE / BRIDGE" : "DRY-RUN / BRIDGE")]),
+      m("div.so101-operator-bar", [
+        m("div.so101-status-pips", [statusPip("Bridge", bridge !== null, "ok"), statusPip("Robot", bridge?.connected === true, "ok"), statusPip("Tracking", state.view === "control", "armed")]),
+        m("span.so101-sr-status", { "aria-live": "polite", "aria-atomic": "true" }, `${state.view} · ${bridge?.enabled ? "target live" : "target held"}`),
+        m("div.so101-actions", [
+          m("button", { onclick: connectBridge }, "Connect bridge"),
+          m("button", { disabled: bridge === null, onclick: () => { logEvent("robot-connect-requested"); send({ type: "connect" }); } }, "Connect robot"),
+          m("button.so101-stop", { disabled: bridge === null, onclick: () => { logEvent("stop-requested"); setView("setup"); send({ type: "stop" }); } }, "STOP"),
+        ]),
       ]),
-      state.error === null ? null : m("p.so101-error", state.error),
-      bridge === null ? m("p", "Start the bridge, then connect.") : m("div.so101-control-surface", [
-        m("div.so101-jog-toolbar", [
-          m("span", "Drag from center. The nub maps directly to joint position and returns on release.")
+      state.error === null ? null : m("p.so101-error", { role: "alert" }, state.error),
+      bridge === null ? m("div.so101-empty", [m("strong", "Connect the local bridge"), m("p", "Setup stays disabled until the bridge and robot report state."), m("button", { onclick: connectBridge }, "Connect bridge")]) : m("div.so101-control-surface", [
+        m("div.so101-phase-bar", [
+          m("div", [m("small", "CONTROL PATH"), m("strong", state.view === "setup" ? "SETUP" : state.view === "preview" ? "PREVIEW" : "ARMED")]),
+          m("div.so101-phase-steps", ["SETUP", "PREVIEW", "ARMED"].map((label, index) => m("span", { class: index === (state.view === "setup" ? 0 : state.view === "preview" ? 1 : 2) ? "is-active" : "" }, label))),
         ]),
-        m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => {
-          const axes: readonly JointName[] = group.axes;
-          const [verticalAxis, horizontalAxis] = axes;
-          const verticalCaps = bridge.limits[verticalAxis] ?? bridge.calibration_limits[verticalAxis];
-          const horizontalCaps = horizontalAxis === undefined ? null : bridge.limits[horizontalAxis] ?? bridge.calibration_limits[horizontalAxis];
-          const positionY = (state.positions[verticalAxis] - verticalCaps[0]) / (verticalCaps[1] - verticalCaps[0]);
-          const positionX = horizontalCaps === null ? 0.5 : (state.positions[horizontalAxis] - horizontalCaps[0]) / (horizontalCaps[1] - horizontalCaps[0]);
-          const [activeX, activeY] = state.joystickRatios[group.name] ?? [0, 0];
-          return m("article.so101-joystick-card", [
-            m("div.so101-joint-heading", [m("strong", group.name), m("span", [...axes, ...(group.zoned === undefined ? [] : [group.zoned])].map((axis) => `${JOINT_LABELS[axis]} ${state.positions[axis].toFixed(1)}`).join(" · "))]),
-            m(`div.so101-joystick${horizontalAxis === undefined ? ".is-single-axis" : ""}${group.zoned === undefined ? "" : ".is-zoned"}`, {
-              onpointerdown: (event: PointerEvent) => startGroupJog(group, event),
-              role: "application",
-              "aria-label": `${group.name} joystick for ${axes.map((axis) => JOINT_LABELS[axis]).join(" and ")}${group.zoned === undefined ? "" : `; radial travel continuously blends toward ${JOINT_LABELS[group.zoned]}`}`,
-              "aria-disabled": !bridge.enabled,
-            }, [m("span.so101-joystick-guide"), m("span.so101-position-indicator", { style: { left: `${positionX * 100}%`, top: `${(1 - positionY) * 100}%` } }), m("span.so101-joystick-knob", { style: { left: `${(horizontalAxis === undefined ? 0 : activeX) * 50 + 50}%`, top: `${50 + activeY * 50}%` } })])
-          ]);
-        })),
-        m("label.so101-gripper-slider", [
-          m("div.so101-joint-heading", [m("strong", "Gripper"), m("output", state.positions.gripper.toFixed(1))]),
-          m("span.so101-gripper-labels", [m("span", "Open"), m("span", "Close")]),
-          m("input", {
-            type: "range",
-            min: bridge.limits.gripper[0],
-            max: bridge.limits.gripper[1],
-            step: 0.1,
-            value: state.positions.gripper,
-            disabled: !bridge.enabled,
-            oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value),
-          }),
-        ]),
-        m("small.so101-jog-hint", `Shoulder + elbow: X pans. Inner zone: below flexes shoulder, above extends. Outer zone: below flexes elbow, above extends. Release to stop.`),
-        m("details.so101-config", { open: state.configOpen, ontoggle: (event: Event) => { state.configOpen = (event.target as HTMLDetailsElement).open; } }, [
-          m("summary", "Configuration: caps and sliders"),
-          m("div.so101-joints", [
-        JOINTS.map((joint) => {
-          const fullRange = bridge.calibration_limits[joint] ?? [-180, 180];
-          const caps = bridge.limits[joint] ?? fullRange;
-          const position = state.positions[joint];
-          const percent = (value: number): string => `${((value - fullRange[0]) / (fullRange[1] - fullRange[0])) * 100}%`;
-          const handle = (kind: "min" | "value" | "max", value: number, disabled: boolean): m.Vnode => m("button.so101-handle", {
-            class: `so101-handle-${kind}`,
-            style: { left: percent(value) },
-            role: "slider",
-            "aria-label": `${JOINT_LABELS[joint]} ${kind}`,
-            "aria-valuemin": fullRange[0],
-            "aria-valuemax": fullRange[1],
-            "aria-valuenow": value,
-            disabled,
-            onpointerdown: (event: PointerEvent) => dragHandle(joint, kind, event),
-            onkeydown: (event: KeyboardEvent) => keyboardHandle(joint, kind, event),
-          });
-          return m("article.so101-joint", [
-            m("div.so101-joint-heading", [m("strong", JOINT_LABELS[joint]), m("output", position.toFixed(1))]),
-            m("div.so101-slider", [
-              m("div.so101-track"),
-              handle("min", caps[0], bridge.enabled),
-              handle("max", caps[1], bridge.enabled),
-              handle("value", position, !bridge.enabled),
-            ]),
-            m("small", `caps ${caps[0].toFixed(1)} … ${caps[1].toFixed(1)}`),
-          ]);
-        }),
-            m("button", { disabled: bridge.enabled, onclick: resetCaps }, "Reset all caps"),
-          ]),
+        state.view === "setup" ? m("section.so101-setup", [
+          m("div.so101-setup-heading", [m("div", [m("small", "CONTROL DISABLED"), m("h2", "Capture safe travel")]), m("button", { disabled: !bridge.connected || bridge.enabled, onclick: refreshArmPosition }, "Sync arm position")]),
+          m("p.so101-helper", "Move the arm by hand, sync its observed position, then capture each low/high endpoint. Nothing transmits while setup is open."),
+          m("div.so101-cap-grid", JOINTS.map((joint) => capRow(bridge, joint))),
+          m("div.so101-setup-actions", [m("button", { disabled: !bridge.connected || bridge.enabled, onclick: resetCaps }, "Reset caps"), m("button.so101-primary", { disabled: !ready || bridge.enabled, onclick: () => setView("preview") }, "Review movement →")]),
+        ]) : m("section.so101-operation", [
+          m("div.so101-operation-heading", [m("div", [m("small", state.view === "preview" ? "NO TARGET" : "TARGET LIVE"), m("h2", state.view === "preview" ? "Preview the arm" : "Control is armed")]), m("div", [state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable" }) }, "Enable control") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])]),
+          m("p.so101-helper", state.view === "preview" ? "Drag from center. The arm diagram shows the expected result; preview does not transmit." : "Drag from center. Direct position mapping is unchanged. Release to hold the last safe target."),
+          m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => joystickCard(bridge, group))),
+          m("label.so101-gripper-slider", [m("div.so101-joint-heading", [m("strong", "Gripper"), m("output", displayedPositions().gripper.toFixed(1))]), m("input", { type: "range", min: bridge.limits.gripper[0], max: bridge.limits.gripper[1], step: 0.1, value: displayedPositions().gripper, disabled: state.view === "control" ? !bridge.enabled : false, oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value) })]),
+          m("div.so101-limit-readout", [m("span", "ACTIVE CAPS"), m("strong", JOINTS.map((joint) => `${JOINT_LABELS[joint]} ${bridge.limits[joint][0].toFixed(0)}…${bridge.limits[joint][1].toFixed(0)}`).join(" · "))]),
         ]),
       ]),
     ]);

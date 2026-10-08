@@ -1,6 +1,11 @@
-.tracking { min-height: 100%; background: #050505; }
-.tracking-mode-switcher { display: flex; align-items: center; gap: .35rem; width: min(100%, 60rem); margin: 0 auto; padding: .65rem clamp(.75rem, 3vw, 2rem); border-inline: 1px solid #292929; border-bottom: 1px solid #292929; background: #050505; font-family: "SFMono-Regular", Menlo, monospace; }
-.tracking-mode-label { margin-right: auto; color: #777771; font-size: .6rem; letter-spacing: .1em; }
-.tracking-mode-switcher button { padding: .45rem .65rem; border: 1px solid #292929; border-radius: 0; background: transparent; color: #777771; font-family: inherit; font-size: .62rem; text-transform: uppercase; }
-.tracking-mode-switcher button:hover, .tracking-mode-switcher button:focus-visible, .tracking-mode-switcher button.active { border-color: #c6ff00; color: #c6ff00; }
+.tracking { min-height: 100%; background: #f5f6f2; }
+.tracking-mode-switcher { display: flex; align-items: center; gap: .75rem; width: min(100%, 72rem); margin: 0 auto; padding: .65rem clamp(.75rem, 3vw, 2rem); border-inline: 1px solid #cbd2ca; border-bottom: 1px solid #cbd2ca; background: #f5f6f2; font-family: "SFMono-Regular", Menlo, monospace; }
+.tracking-mode-label { margin-right: auto; color: #657068; font-size: .6rem; letter-spacing: .1em; }
+.tracking-segmented-control { display: inline-flex; gap: 0; margin: 0; padding: 0; border: 1px solid #cbd2ca; }
+.tracking-segment-radio { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tracking-segmented-control label { display: inline-grid; min-height: 2rem; place-items: center; padding: .45rem .65rem; border-right: 1px solid #cbd2ca; color: #657068; font-size: .62rem; text-transform: uppercase; cursor: pointer; }
+.tracking-segmented-control label:last-child { border-right: 0; }
+.tracking-segment-radio:checked + label { background: #476d26; color: #fff; }
+.tracking-segment-radio:focus-visible + label { outline: 2px solid #476d26; outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 36rem) { .tracking-mode-switcher { align-items: flex-start; flex-wrap: wrap; } .tracking-mode-label { flex-basis: 100%; } }

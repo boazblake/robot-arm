@@ -1,10 +1,10 @@
 :root {
-  --editorial-black: #050505;
-  --editorial-white: #f4f4ef;
-  --editorial-dim: #777771;
-  --editorial-rule: #252525;
-  --editorial-acid: #c6ff00;
-  --editorial-coral: #ff5d4a;
+  --editorial-black: #f5f6f2;
+  --editorial-white: #20231f;
+  --editorial-dim: #657068;
+  --editorial-rule: #cbd2ca;
+  --editorial-acid: #476d26;
+  --editorial-coral: #b73b2d;
   --editorial-mono: "SFMono-Regular", "Roboto Mono", Menlo, monospace;
   --editorial-sans: "Helvetica Neue", Arial, sans-serif;
 }

@@ -136,6 +136,19 @@ class So101Bridge:
         self.state.positions = self._clamp_positions(self.state.positions or {})
         log_event("caps-updated", limits=self.limits)
 
+    async def refresh_position(self) -> None:
+        if not self.state.connected:
+            raise ValueError("bridge is disconnected")
+        if self.state.enabled:
+            raise ValueError("disable control before refreshing position")
+        if self.live:
+            observation = await asyncio.to_thread(self.robot.get_observation)
+            observed = {joint: float(observation[f"{joint}.pos"]) for joint in JOINTS}
+            self.state.positions = self._clamp_positions(observed)
+            if self.state.positions != observed:
+                log_event("observation-clamped", observed=observed, clamped=self.state.positions)
+        log_event("position-refreshed", positions=self.state.positions, live=self.live)
+
     async def set_target(self, value: Any) -> None:
         if not self.state.connected:
             log_event("target-rejected", reason="disconnected")
@@ -200,6 +213,8 @@ async def serve_client(bridge: So101Bridge, websocket: Any) -> None:
                 bridge.state.enabled = False
             elif kind == "set-target":
                 await bridge.set_target(message.get("positions"))
+            elif kind == "refresh":
+                await bridge.refresh_position()
             elif kind == "set-caps":
                 bridge.set_caps(message.get("caps"))
             elif kind == "stop":
@@ -228,4 +243,5 @@ parser.add_argument("--robot-id", default="my_so101_arm")
 parser.add_argument("--host", default="127.0.0.1")
 parser.add_argument("--listen", type=int, default=8765)
 parser.add_argument("--live", action="store_true", help="Allow commands to reach the physical arm")
-asyncio.run(main(parser.parse_args()))
+if __name__ == "__main__":
+    asyncio.run(main(parser.parse_args()))
