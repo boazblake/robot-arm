@@ -34,6 +34,7 @@ type ComponentState = {
   joystickRatios: Record<string, readonly [number, number]>;
   joystickBases: Record<string, Record<JointName, number>>;
   activeJoystick: string | null;
+  setupPending: boolean;
 };
 
 const JOINT_LABELS: Readonly<Record<JointName, string>> = {
@@ -63,6 +64,7 @@ const state: ComponentState = {
   joystickRatios: {},
   joystickBases: {},
   activeJoystick: null,
+  setupPending: false,
 };
 let heartbeatTimer: number | null = null;
 
@@ -123,7 +125,8 @@ const connectBridge = (): void => {
     const error = parseError(value);
     if (next !== null) {
       state.bridge = next;
-      if (state.activeJoystick === null && !(state.view === "preview" && next.enabled)) state.positions = { ...state.positions, ...next.positions };
+      state.setupPending = false;
+      if (state.activeJoystick === null) state.positions = { ...state.positions, ...next.positions };
       if (!next.connected) setView("setup");
       else if (next.enabled) setView("control");
       else if (state.view === "control") setView("preview");
@@ -131,6 +134,7 @@ const connectBridge = (): void => {
       syncHeartbeat();
       logEvent("bridge-state", { connected: next.connected, enabled: next.enabled, live: next.live });
     } else if (error !== null) {
+      state.setupPending = false;
       state.error = error.message;
       if (error.message.includes("disconnected") || error.message.includes("control is disabled")) {
         state.bridge = state.bridge === null ? null : { ...state.bridge, connected: false, enabled: false };
@@ -156,7 +160,7 @@ const setPosition = (joint: JointName, raw: string): void => {
 };
 const updateCap = (joint: JointName, end: CapEnd, raw: string): void => {
   const bridge = state.bridge;
-  if (bridge === null || !bridge.connected || bridge.enabled) return;
+  if (bridge === null || !bridge.connected || bridge.enabled || state.setupPending) return;
   const fullRange = bridge.calibration_limits[joint];
   const caps = copyCaps(bridge);
   const value = Number(raw);
@@ -168,13 +172,14 @@ const updateCap = (joint: JointName, end: CapEnd, raw: string): void => {
   caps[joint] = result.caps;
   state.bridge = { ...bridge, limits: caps };
   state.error = null;
+  state.setupPending = true;
   logEvent("joint-cap-changed", { joint, end, value });
   send({ type: "set-caps", caps });
   m.redraw();
 };
 const captureCap = (joint: JointName, end: CapEnd): void => {
   const bridge = state.bridge;
-  if (bridge === null || !bridge.connected || bridge.enabled) return;
+  if (bridge === null || !bridge.connected || bridge.enabled || state.setupPending) return;
   const current = displayedPositions()[joint];
   const caps = copyCaps(bridge);
   const result = captureCapValue(caps[joint], current, end);
@@ -185,20 +190,23 @@ const captureCap = (joint: JointName, end: CapEnd): void => {
   caps[joint] = result.caps;
   state.bridge = { ...bridge, limits: caps };
   state.error = null;
+  state.setupPending = true;
   logEvent("joint-cap-captured", { joint, end, value: current });
   send({ type: "set-caps", caps });
   m.redraw();
 };
 const refreshArmPosition = (): void => {
-  if (state.bridge === null || !state.bridge.connected || state.bridge.enabled) return;
+  if (state.bridge === null || !state.bridge.connected || state.bridge.enabled || state.setupPending) return;
   state.error = null;
+  state.setupPending = true;
   logEvent("bridge-position-refresh-requested");
   send({ type: "refresh" });
 };
 const resetCaps = (): void => {
-  if (state.bridge === null || !state.bridge.connected || state.bridge.enabled) return;
+  if (state.bridge === null || !state.bridge.connected || state.bridge.enabled || state.setupPending) return;
   logEvent("joint-caps-reset");
   state.error = null;
+  state.setupPending = true;
   send({ type: "set-caps", caps: state.bridge.calibration_limits });
 };
 
@@ -333,7 +341,7 @@ const joystickCard = (bridge: BridgeState, group: JoystickGroup): m.Vnode => {
   ]);
 };
 const capRow = (bridge: BridgeState, joint: JointName): m.Vnode => {
-  const canConfigure = bridge.connected && !bridge.enabled;
+  const canConfigure = bridge.connected && !bridge.enabled && !state.setupPending;
   const fullRange = bridge.calibration_limits[joint] ?? [-180, 180];
   const caps = bridge.limits[joint] ?? fullRange;
   const position = displayedPositions()[joint];
@@ -368,11 +376,11 @@ const ManualControl: m.Component = {
       state.error === null ? null : m("p.so101-error", { role: "alert" }, state.error),
       bridge === null ? m("div.so101-empty", m("button", { onclick: connectBridge }, "Connect bridge")) : m("div.so101-control-surface", [
         state.view === "setup" ? m("section.so101-setup", [
-          m("div.so101-setup-heading", m("button", { disabled: !bridge.connected || bridge.enabled, onclick: refreshArmPosition }, "Sync")),
+          m("div.so101-setup-heading", m("button", { disabled: !bridge.connected || bridge.enabled || state.setupPending, onclick: refreshArmPosition }, "Sync")),
           m("div.so101-cap-grid", JOINTS.map((joint) => capRow(bridge, joint))),
-          m("div.so101-setup-actions", [m("button", { disabled: !bridge.connected || bridge.enabled, onclick: resetCaps }, "Reset"), m("button.so101-primary", { disabled: !ready || bridge.enabled, onclick: () => setView("preview") }, "Review →")]),
+          m("div.so101-setup-actions", [m("button", { disabled: !bridge.connected || bridge.enabled || state.setupPending, onclick: resetCaps }, "Reset"), m("button.so101-primary", { disabled: !ready || bridge.enabled || state.setupPending, onclick: () => setView("preview") }, "Review →")]),
         ]) : m("section.so101-operation", [
-          m("div.so101-operation-heading", m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable" }) }, "Enable") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])),
+          m("div.so101-operation-heading", m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable", positions: state.previewPositions }) }, "Enable") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])),
           m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => joystickCard(bridge, group))),
           m("label.so101-gripper-slider", [m("div.so101-joint-heading", [m("strong", "Gripper"), m("output", displayedPositions().gripper.toFixed(1))]), m("input", { type: "range", min: bridge.limits.gripper[0], max: bridge.limits.gripper[1], step: 0.1, value: displayedPositions().gripper, disabled: state.view === "control" ? !bridge.enabled : false, oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value) })]),
         ]),

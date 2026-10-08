@@ -162,10 +162,11 @@ class So101Bridge:
         self.state.positions = positions
         self.state.last_command_at = time.monotonic()
 
-    def enable_control(self) -> None:
+    def enable_control(self, value: Any = None) -> None:
         if not self.state.connected:
             raise ValueError("connect before enabling control")
-        self._validate_positions(self.state.positions or {})
+        positions = self._validate_positions(self.state.positions if value is None else value)
+        self.state.positions = positions
         self.state.enabled = True
         self.state.last_command_at = time.monotonic()
 
@@ -210,7 +211,7 @@ async def serve_client(bridge: So101Bridge, websocket: Any) -> None:
             elif kind == "disconnect":
                 await bridge.disconnect()
             elif kind == "enable":
-                bridge.enable_control()
+                bridge.enable_control(message.get("positions"))
             elif kind == "disable":
                 bridge.state.enabled = False
             elif kind == "set-target":

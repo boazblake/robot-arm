@@ -73,6 +73,14 @@ class So101BridgeTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(self.bridge.state.enabled)
 
+    async def test_enable_uses_reviewed_target(self) -> None:
+        target = {joint: 1.0 for joint in bridge_module.JOINTS}
+
+        self.bridge.enable_control(target)
+
+        self.assertTrue(self.bridge.state.enabled)
+        self.assertEqual(self.bridge.state.positions, target)
+
 
 if __name__ == "__main__":
     unittest.main()
