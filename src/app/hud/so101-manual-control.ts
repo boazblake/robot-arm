@@ -271,8 +271,6 @@ const startGroupJog = (group: JoystickGroup, event: PointerEvent): void => {
   window.addEventListener("pointercancel", stop, { once: true });
 };
 
-const statusPip = (label: string, active: boolean, kind: "ok" | "armed" | "quiet"): m.Vnode =>
-  m("span", { class: `so101-status-pip ${kind} ${active ? "is-active" : "is-idle"}` }, [m("i"), label]);
 const capPercent = (value: number, range: readonly [number, number]): string =>
   `${((value - range[0]) / (range[1] - range[0])) * 100}%`;
 const directionCue = (group: JoystickGroup): m.Children =>
@@ -342,8 +340,6 @@ const ManualControl: m.Component = {
     return m("section.so101-manual-control", [
       m("header", [m("div.so101-heading", [m("small", "TELEOPERATION / MOBILE CONTROL"), m("h1", "SO—101")]), m("small", bridge?.live ? "LIVE / BRIDGE" : "DRY-RUN / BRIDGE")]),
       m("div.so101-operator-bar", [
-        m("div.so101-status-pips", [statusPip("Bridge", bridge !== null, "ok"), statusPip("Robot", bridge?.connected === true, "ok"), statusPip("Tracking", state.view === "control", "armed")]),
-        m("span.so101-sr-status", { "aria-live": "polite", "aria-atomic": "true" }, `${state.view} · ${bridge?.enabled ? "target live" : "target held"}`),
         m("div.so101-actions", [
           m("button", { onclick: connectBridge }, "Connect bridge"),
           m("button", { disabled: bridge === null, onclick: () => { logEvent("robot-connect-requested"); send({ type: "connect" }); } }, "Connect robot"),
@@ -352,21 +348,14 @@ const ManualControl: m.Component = {
       ]),
       state.error === null ? null : m("p.so101-error", { role: "alert" }, state.error),
       bridge === null ? m("div.so101-empty", [m("strong", "Connect the local bridge"), m("p", "Setup stays disabled until the bridge and robot report state."), m("button", { onclick: connectBridge }, "Connect bridge")]) : m("div.so101-control-surface", [
-        m("div.so101-phase-bar", [
-          m("div", [m("small", "CONTROL PATH"), m("strong", state.view === "setup" ? "SETUP" : state.view === "preview" ? "PREVIEW" : "ARMED")]),
-          m("div.so101-phase-steps", ["SETUP", "PREVIEW", "ARMED"].map((label, index) => m("span", { class: index === (state.view === "setup" ? 0 : state.view === "preview" ? 1 : 2) ? "is-active" : "" }, label))),
-        ]),
         state.view === "setup" ? m("section.so101-setup", [
           m("div.so101-setup-heading", [m("div", [m("small", "CONTROL DISABLED"), m("h2", "Capture safe travel")]), m("button", { disabled: !bridge.connected || bridge.enabled, onclick: refreshArmPosition }, "Sync arm position")]),
-          m("p.so101-helper", "Move the arm by hand, sync its observed position, then capture each low/high endpoint. Nothing transmits while setup is open."),
           m("div.so101-cap-grid", JOINTS.map((joint) => capRow(bridge, joint))),
           m("div.so101-setup-actions", [m("button", { disabled: !bridge.connected || bridge.enabled, onclick: resetCaps }, "Reset caps"), m("button.so101-primary", { disabled: !ready || bridge.enabled, onclick: () => setView("preview") }, "Review movement →")]),
         ]) : m("section.so101-operation", [
-          m("div.so101-operation-heading", [m("div", [m("small", state.view === "preview" ? "NO TARGET" : "TARGET LIVE"), m("h2", state.view === "preview" ? "Preview the arm" : "Control is armed")]), m("div", [state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable" }) }, "Enable control") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])]),
-          m("p.so101-helper", state.view === "preview" ? "Drag from center. The arm diagram shows the expected result; preview does not transmit." : "Drag from center. Direct position mapping is unchanged. Release to hold the last safe target."),
+          m("div.so101-operation-heading", [m("div", [m("small", state.view === "preview" ? "NO TARGET" : "TARGET LIVE"), m("h2", state.view === "preview" ? "Preview the arm" : "Control is armed")]), m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable" }) }, "Enable control") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])]),
           m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => joystickCard(bridge, group))),
           m("label.so101-gripper-slider", [m("div.so101-joint-heading", [m("strong", "Gripper"), m("output", displayedPositions().gripper.toFixed(1))]), m("input", { type: "range", min: bridge.limits.gripper[0], max: bridge.limits.gripper[1], step: 0.1, value: displayedPositions().gripper, disabled: state.view === "control" ? !bridge.enabled : false, oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value) })]),
-          m("div.so101-limit-readout", [m("span", "ACTIVE CAPS"), m("strong", JOINTS.map((joint) => `${JOINT_LABELS[joint]} ${bridge.limits[joint][0].toFixed(0)}…${bridge.limits[joint][1].toFixed(0)}`).join(" · "))]),
         ]),
       ]),
     ]);
