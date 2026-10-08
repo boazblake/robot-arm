@@ -64,6 +64,15 @@ class So101BridgeTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.bridge.state.positions["shoulder_pan"], 20.0)
 
+    async def test_enable_rejects_observation_outside_active_caps(self) -> None:
+        self.bridge.state.positions["shoulder_pan"] = 20.0
+        self.bridge.limits["shoulder_pan"] = (-10.0, 10.0)
+
+        with self.assertRaisesRegex(ValueError, "shoulder_pan is outside its active caps"):
+            self.bridge.enable_control()
+
+        self.assertFalse(self.bridge.state.enabled)
+
 
 if __name__ == "__main__":
     unittest.main()

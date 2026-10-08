@@ -116,14 +116,14 @@ const connectBridge = (): void => {
   state.socket?.close();
   const socket = new WebSocket(bridgeUrl());
   state.socket = socket;
-  socket.onopen = () => logEvent("bridge-websocket-open");
   socket.onmessage = (event) => {
+    if (state.socket !== socket) return;
     const value: unknown = JSON.parse(String(event.data));
     const next = parseState(value);
     const error = parseError(value);
     if (next !== null) {
       state.bridge = next;
-      if (state.activeJoystick === null) state.positions = { ...state.positions, ...next.positions };
+      if (state.activeJoystick === null && !(state.view === "preview" && next.enabled)) state.positions = { ...state.positions, ...next.positions };
       if (!next.connected) setView("setup");
       else if (next.enabled) setView("control");
       else if (state.view === "control") setView("preview");
@@ -141,8 +141,9 @@ const connectBridge = (): void => {
     }
     m.redraw();
   };
-  socket.onerror = () => { state.error = "Bridge unavailable"; logEvent("bridge-websocket-error"); m.redraw(); };
-  socket.onclose = () => { state.bridge = null; setView("setup"); stopHeartbeat(); logEvent("bridge-websocket-closed"); m.redraw(); };
+  socket.onopen = () => { if (state.socket === socket) logEvent("bridge-websocket-open"); };
+  socket.onerror = () => { if (state.socket !== socket) return; state.error = "Bridge unavailable"; logEvent("bridge-websocket-error"); m.redraw(); };
+  socket.onclose = () => { if (state.socket !== socket) return; state.bridge = null; setView("setup"); stopHeartbeat(); logEvent("bridge-websocket-closed"); m.redraw(); };
 };
 
 const setPosition = (joint: JointName, raw: string): void => {
@@ -252,7 +253,7 @@ const stopGroupJog = (group: JoystickGroup, move: (event: PointerEvent) => void,
 };
 const startGroupJog = (group: JoystickGroup, event: PointerEvent): void => {
   const bridge = state.bridge;
-  if (bridge === null || state.view === "setup" || (state.view === "control" && !bridge.enabled)) return;
+  if (bridge === null || state.view === "setup" || state.activeJoystick !== null || (state.view === "control" && !bridge.enabled)) return;
   const joystick = event.currentTarget as HTMLElement;
   const move = (nextEvent: PointerEvent): void => {
     const bounds = joystick.getBoundingClientRect();
