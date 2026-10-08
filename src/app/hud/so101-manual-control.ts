@@ -36,6 +36,7 @@ type ComponentState = {
   activeJoystick: string | null;
   setupPending: boolean;
   pendingCaps: Record<JointName, [number, number]> | null;
+  pendingCapRequest: Record<JointName, [number, number]> | null;
 };
 
 const JOINT_LABELS: Readonly<Record<JointName, string>> = {
@@ -67,6 +68,7 @@ const state: ComponentState = {
   activeJoystick: null,
   setupPending: false,
   pendingCaps: null,
+  pendingCapRequest: null,
 };
 let heartbeatTimer: number | null = null;
 let capCommitTimer: number | null = null;
@@ -117,6 +119,17 @@ const setView = (view: ManualView): void => {
     state.joystickRatios = {};
   }
 };
+const queueCapCommit = (bridge: BridgeState): void => {
+  if (capCommitTimer !== null) window.clearTimeout(capCommitTimer);
+  capCommitTimer = window.setTimeout(() => {
+    capCommitTimer = null;
+    if (state.bridge !== bridge || state.pendingCaps === null || !bridge.connected || bridge.enabled || state.setupPending || state.pendingCapRequest !== null) return;
+    state.setupPending = true;
+    state.pendingCapRequest = state.pendingCaps;
+    send({ type: "set-caps", caps: state.pendingCaps });
+    m.redraw();
+  }, 200);
+};
 
 const connectBridge = (): void => {
   logEvent("bridge-connect-requested", { url: bridgeUrl() });
@@ -139,7 +152,8 @@ const connectBridge = (): void => {
       const wasPreviewing = state.view === "preview";
       state.bridge = next;
       state.setupPending = false;
-      state.pendingCaps = null;
+      if (state.pendingCapRequest !== null && state.pendingCaps === state.pendingCapRequest) state.pendingCaps = null;
+      state.pendingCapRequest = null;
       if (state.activeJoystick === null && !(wasPreviewing && next.enabled)) state.positions = { ...state.positions, ...next.positions };
       if (!next.connected) setView("setup");
       else if (next.enabled) {
@@ -147,12 +161,19 @@ const connectBridge = (): void => {
         setView("control");
       }
       else if (state.view === "control") setView("preview");
+      if (state.pendingCaps !== null && !next.enabled) queueCapCommit(next);
       state.error = null;
       syncHeartbeat();
       logEvent("bridge-state", { connected: next.connected, enabled: next.enabled, live: next.live });
     } else if (error !== null) {
+      const hadPendingCapRequest = state.pendingCapRequest !== null;
       state.setupPending = false;
-      state.pendingCaps = null;
+      if (hadPendingCapRequest) state.pendingCaps = null;
+      state.pendingCapRequest = null;
+      if (hadPendingCapRequest && state.bridge?.connected && !state.bridge.enabled) {
+        state.setupPending = true;
+        send({ type: "refresh" });
+      }
       state.error = error.message;
       if (error.message.includes("disconnected") || error.message.includes("control is disabled")) {
         state.bridge = state.bridge === null ? null : { ...state.bridge, connected: false, enabled: false };
@@ -171,6 +192,7 @@ const connectBridge = (): void => {
     capCommitTimer = null;
     state.setupPending = false;
     state.pendingCaps = null;
+    state.pendingCapRequest = null;
     state.bridge = null;
     setView("setup");
     stopHeartbeat();
@@ -189,7 +211,7 @@ const setPosition = (joint: JointName, raw: string): void => {
 };
 const updateCap = (joint: JointName, end: CapEnd, raw: string): void => {
   const bridge = state.bridge;
-  if (bridge === null || !bridge.connected || bridge.enabled || state.setupPending) return;
+  if (bridge === null || !bridge.connected || bridge.enabled || (state.setupPending && state.pendingCapRequest === null)) return;
   const fullRange = bridge.calibration_limits[joint];
   const caps = currentCaps(bridge);
   const value = Number(raw);
@@ -198,18 +220,10 @@ const updateCap = (joint: JointName, end: CapEnd, raw: string): void => {
     state.error = result.reason === "empty-range" ? `${JOINT_LABELS[joint]} caps must leave a usable range` : `${JOINT_LABELS[joint]} cap must be numeric`;
     return;
   }
-  caps[joint] = result.caps;
-  state.pendingCaps = caps;
+  state.pendingCaps = { ...caps, [joint]: result.caps };
   state.error = null;
   logEvent("joint-cap-changed", { joint, end, value });
-  if (capCommitTimer !== null) window.clearTimeout(capCommitTimer);
-  capCommitTimer = window.setTimeout(() => {
-    capCommitTimer = null;
-    if (state.bridge !== bridge || state.pendingCaps === null || !bridge.connected || bridge.enabled) return;
-    state.setupPending = true;
-    send({ type: "set-caps", caps: state.pendingCaps });
-    m.redraw();
-  }, 200);
+  queueCapCommit(bridge);
   m.redraw();
 };
 const captureCap = (joint: JointName, end: CapEnd): void => {
@@ -226,6 +240,7 @@ const captureCap = (joint: JointName, end: CapEnd): void => {
   if (capCommitTimer !== null) window.clearTimeout(capCommitTimer);
   capCommitTimer = null;
   state.pendingCaps = null;
+  state.pendingCapRequest = null;
   state.error = null;
   state.setupPending = true;
   logEvent("joint-cap-captured", { joint, end, value: current });
@@ -245,6 +260,7 @@ const resetCaps = (): void => {
   if (capCommitTimer !== null) window.clearTimeout(capCommitTimer);
   capCommitTimer = null;
   state.pendingCaps = null;
+  state.pendingCapRequest = null;
   state.error = null;
   state.setupPending = true;
   send({ type: "set-caps", caps: state.bridge.calibration_limits });
@@ -380,7 +396,7 @@ const joystickCard = (bridge: BridgeState, group: JoystickGroup): m.Vnode => {
   ]);
 };
 const capRow = (bridge: BridgeState, joint: JointName): m.Vnode => {
-  const canConfigure = bridge.connected && !bridge.enabled && !state.setupPending;
+  const canConfigure = bridge.connected && !bridge.enabled && (!state.setupPending || state.pendingCapRequest !== null);
   const fullRange = bridge.calibration_limits[joint] ?? [-180, 180];
   const caps = state.pendingCaps?.[joint] ?? bridge.limits[joint] ?? fullRange;
   const position = displayedPositions()[joint];

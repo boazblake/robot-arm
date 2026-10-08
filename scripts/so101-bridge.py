@@ -42,6 +42,7 @@ class So101Bridge:
         self.live = live
         self.state = BridgeState(positions={joint: 0.0 for joint in JOINTS})
         self.robot: Any = None
+        self.lock = asyncio.Lock()
         self.calibration_limits: dict[str, tuple[float, float]] = {
             joint: (-180.0, 180.0) for joint in JOINTS
         }
@@ -145,7 +146,9 @@ class So101Bridge:
         if self.live:
             observation = await asyncio.to_thread(self.robot.get_observation)
             observed = {joint: float(observation[f"{joint}.pos"]) for joint in JOINTS}
-            self.state.positions = observed
+            self.state.positions = self._clamp_positions(observed)
+            if self.state.positions != observed:
+                log_event("observation-clamped", observed=observed, clamped=self.state.positions)
         log_event("position-refreshed", positions=self.state.positions, live=self.live)
 
     async def set_target(self, value: Any) -> None:
@@ -181,13 +184,14 @@ class So101Bridge:
     async def watchdog(self) -> None:
         while True:
             await asyncio.sleep(0.1)
-            if (
-                self.state.connected
-                and self.state.enabled
-                and time.monotonic() - self.state.last_command_at > STALE_AFTER_SECONDS
-            ):
-                log_event("stale-timeout", age_seconds=time.monotonic() - self.state.last_command_at)
-                await self.stop()
+            async with self.lock:
+                if (
+                    self.state.connected
+                    and self.state.enabled
+                    and time.monotonic() - self.state.last_command_at > STALE_AFTER_SECONDS
+                ):
+                    log_event("stale-timeout", age_seconds=time.monotonic() - self.state.last_command_at)
+                    await self.stop()
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -204,32 +208,34 @@ class So101Bridge:
 
 async def serve_client(bridge: So101Bridge, websocket: Any) -> None:
     log_event("client-connected")
-    await websocket.send(json.dumps(bridge.snapshot()))
+    async with bridge.lock:
+        await websocket.send(json.dumps(bridge.snapshot()))
     async for raw in websocket:
         message: Any = None
         try:
             message = json.loads(raw)
             kind = message.get("type")
-            if kind == "connect":
-                await bridge.connect()
-            elif kind == "disconnect":
-                await bridge.disconnect()
-            elif kind == "enable":
-                await bridge.enable_control(message.get("positions"))
-            elif kind == "disable":
-                bridge.state.enabled = False
-            elif kind == "set-target":
-                await bridge.set_target(message.get("positions"))
-            elif kind == "refresh":
-                await bridge.refresh_position()
-            elif kind == "set-caps":
-                bridge.set_caps(message.get("caps"))
-            elif kind == "stop":
-                await bridge.stop()
-            else:
-                raise ValueError(f"unknown message type: {kind}")
-            log_event("message-processed", message_type=kind)
-            await websocket.send(json.dumps(bridge.snapshot()))
+            async with bridge.lock:
+                if kind == "connect":
+                    await bridge.connect()
+                elif kind == "disconnect":
+                    await bridge.disconnect()
+                elif kind == "enable":
+                    await bridge.enable_control(message.get("positions"))
+                elif kind == "disable":
+                    bridge.state.enabled = False
+                elif kind == "set-target":
+                    await bridge.set_target(message.get("positions"))
+                elif kind == "refresh":
+                    await bridge.refresh_position()
+                elif kind == "set-caps":
+                    bridge.set_caps(message.get("caps"))
+                elif kind == "stop":
+                    await bridge.stop()
+                else:
+                    raise ValueError(f"unknown message type: {kind}")
+                log_event("message-processed", message_type=kind)
+                await websocket.send(json.dumps(bridge.snapshot()))
         except Exception as error:
             log_event("message-failed", message_type=message.get("type") if isinstance(message, dict) else None, error=repr(error))
             await websocket.send(json.dumps({"type": "error", "message": str(error)}))
