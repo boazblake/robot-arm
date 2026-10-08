@@ -144,9 +144,7 @@ class So101Bridge:
         if self.live:
             observation = await asyncio.to_thread(self.robot.get_observation)
             observed = {joint: float(observation[f"{joint}.pos"]) for joint in JOINTS}
-            self.state.positions = self._clamp_positions(observed)
-            if self.state.positions != observed:
-                log_event("observation-clamped", observed=observed, clamped=self.state.positions)
+            self.state.positions = observed
         log_event("position-refreshed", positions=self.state.positions, live=self.live)
 
     async def set_target(self, value: Any) -> None:

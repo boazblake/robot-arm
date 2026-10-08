@@ -52,6 +52,18 @@ class So101BridgeTest(unittest.IsolatedAsyncioTestCase):
         await self.bridge.refresh_position()
         self.assertEqual(self.bridge.state.positions["shoulder_pan"], 0.0)
 
+    async def test_refresh_preserves_observation_outside_active_caps(self) -> None:
+        class Robot:
+            def get_observation(self) -> dict[str, float]:
+                return {f"{joint}.pos": 20.0 if joint == "shoulder_pan" else 0.0 for joint in bridge_module.JOINTS}
+
+        self.bridge.live = True
+        self.bridge.robot = Robot()
+        self.bridge.limits["shoulder_pan"] = (-10.0, 10.0)
+        await self.bridge.refresh_position()
+
+        self.assertEqual(self.bridge.state.positions["shoulder_pan"], 20.0)
+
 
 if __name__ == "__main__":
     unittest.main()

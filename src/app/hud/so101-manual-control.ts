@@ -273,13 +273,33 @@ const startGroupJog = (group: JoystickGroup, event: PointerEvent): void => {
 
 const capPercent = (value: number, range: readonly [number, number]): string =>
   `${((value - range[0]) / (range[1] - range[0])) * 100}%`;
-const directionCue = (group: JoystickGroup): m.Children =>
-  m("div.so101-motion-cues", { "aria-label": "Expected arm movement" }, [
-    m("span.so101-motion-cue", [m("span.so101-arm-solid"), m("span.so101-arm-ghost")]),
-    m("span.so101-motion-cue", [m("span.so101-shoulder-solid"), m("span.so101-shoulder-ghost")]),
-    m("span.so101-motion-cue", [m("span.so101-elbow-solid"), m("span.so101-elbow-ghost")]),
+const directionCue = (bridge: BridgeState, group: JoystickGroup): m.Children => {
+  const positions = displayedPositions();
+  const positionRatio = (joint: JointName): number => {
+    const [low, high] = bridge.limits[joint];
+    return clamp((positions[joint] - (low + high) / 2) / ((high - low) / 2), [-1, 1]);
+  };
+  const [activeX, activeY] = state.joystickRatios[group.name] ?? [0, 0];
+  const horizontal = group.invertHorizontal ? -activeX : activeX;
+  const radius = Math.min(1, Math.hypot(activeX, activeY));
+  const innerZone = 0.5;
+  const shoulderMove = group.zoned === undefined
+    ? activeY
+    : radius <= innerZone ? -activeY / innerZone : 0;
+  const elbowMove = group.zoned === undefined
+    ? activeY
+    : radius > innerZone ? -Math.sign(activeY) * ((radius - innerZone) / (1 - innerZone)) : 0;
+  const armAngle = -22 + positionRatio(group.axes[1] ?? group.axes[0]) * 10 + positionRatio(group.axes[0]) * 8;
+  const shoulderAngle = -18 + positionRatio(group.axes[0]) * 24;
+  const elbowAngle = -24 + positionRatio(group.zoned ?? group.axes[0]) * 42;
+  const ghost = (angle: number, move: number, scale: number): { style: { transform: string } } => ({ style: { transform: `rotate(${angle + move * scale}deg)` } });
+  return m("div.so101-motion-cues", { "aria-label": "Expected arm movement" }, [
+    m("span.so101-motion-cue", [m("span.so101-arm-solid", { style: { transform: `rotate(${armAngle}deg)` } }), m("span.so101-arm-ghost", ghost(armAngle, horizontal + shoulderMove, 18))]),
+    m("span.so101-motion-cue", [m("span.so101-shoulder-solid", { style: { transform: `rotate(${shoulderAngle}deg)` } }), m("span.so101-shoulder-ghost", ghost(shoulderAngle, shoulderMove, 28))]),
+    m("span.so101-motion-cue", [m("span.so101-elbow-solid", { style: { transform: `rotate(${elbowAngle}deg)` } }), m("span.so101-elbow-ghost", ghost(elbowAngle, elbowMove, 44))]),
     m("small", group.zoned === undefined ? "solid = current · ghost = expected" : "solid = now · ghost = result"),
   ]);
+};
 const joystickCard = (bridge: BridgeState, group: JoystickGroup): m.Vnode => {
   const positions = displayedPositions();
   const [verticalAxis, horizontalAxis] = group.axes;
@@ -308,7 +328,7 @@ const joystickCard = (bridge: BridgeState, group: JoystickGroup): m.Vnode => {
         m("span.so101-position-indicator", { style: { left: `${positionX * 100}%`, top: `${(1 - positionY) * 100}%` } }),
         m("span.so101-joystick-knob", { style: { left: `${(horizontalAxis === undefined ? 0 : activeX) * 50 + 50}%`, top: `${50 + activeY * 50}%` } }),
       ]),
-      directionCue(group),
+      directionCue(bridge, group),
     ]),
   ]);
 };
