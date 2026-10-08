@@ -124,11 +124,15 @@ const connectBridge = (): void => {
     const next = parseState(value);
     const error = parseError(value);
     if (next !== null) {
+      const wasPreviewing = state.view === "preview";
       state.bridge = next;
       state.setupPending = false;
-      if (state.activeJoystick === null) state.positions = { ...state.positions, ...next.positions };
+      if (state.activeJoystick === null && !(wasPreviewing && next.enabled)) state.positions = { ...state.positions, ...next.positions };
       if (!next.connected) setView("setup");
-      else if (next.enabled) setView("control");
+      else if (next.enabled) {
+        if (wasPreviewing) state.positions = { ...state.previewPositions };
+        setView("control");
+      }
       else if (state.view === "control") setView("preview");
       state.error = null;
       syncHeartbeat();
@@ -170,7 +174,6 @@ const updateCap = (joint: JointName, end: CapEnd, raw: string): void => {
     return;
   }
   caps[joint] = result.caps;
-  state.bridge = { ...bridge, limits: caps };
   state.error = null;
   state.setupPending = true;
   logEvent("joint-cap-changed", { joint, end, value });
@@ -188,7 +191,6 @@ const captureCap = (joint: JointName, end: CapEnd): void => {
     return;
   }
   caps[joint] = result.caps;
-  state.bridge = { ...bridge, limits: caps };
   state.error = null;
   state.setupPending = true;
   logEvent("joint-cap-captured", { joint, end, value: current });
@@ -241,13 +243,12 @@ const nudgeJoystick = (group: JoystickGroup, key: string): void => {
   const bridge = state.bridge;
   if (bridge === null || state.view === "setup" || (state.view === "control" && !bridge.enabled)) return;
   state.joystickBases[group.name] = { ...displayedPositions() };
-  const [x, y] = state.joystickRatios[group.name] ?? [0, 0];
   const step = 0.08;
-  const next: readonly [number, number] = key === "ArrowLeft" ? [x - step, y]
-    : key === "ArrowRight" ? [x + step, y]
-      : key === "ArrowUp" ? [x, y - step]
-        : [x, y + step];
-  state.joystickRatios[group.name] = [clamp(next[0], [-1, 1]), clamp(next[1], [-1, 1])];
+  const next: readonly [number, number] = key === "ArrowLeft" ? [-step, 0]
+    : key === "ArrowRight" ? [step, 0]
+      : key === "ArrowUp" ? [0, -step]
+        : [0, step];
+  state.joystickRatios[group.name] = next;
   applyJoystickTarget(group);
 };
 const stopGroupJog = (group: JoystickGroup, move: (event: PointerEvent) => void, stop: () => void): void => {
