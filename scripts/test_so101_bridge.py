@@ -69,17 +69,51 @@ class So101BridgeTest(unittest.IsolatedAsyncioTestCase):
         self.bridge.limits["shoulder_pan"] = (-10.0, 10.0)
 
         with self.assertRaisesRegex(ValueError, "shoulder_pan is outside its active caps"):
-            self.bridge.enable_control()
+            await self.bridge.enable_control()
 
         self.assertFalse(self.bridge.state.enabled)
 
     async def test_enable_uses_reviewed_target(self) -> None:
         target = {joint: 1.0 for joint in bridge_module.JOINTS}
 
-        self.bridge.enable_control(target)
+        await self.bridge.enable_control(target)
 
         self.assertTrue(self.bridge.state.enabled)
         self.assertEqual(self.bridge.state.positions, target)
+
+    async def test_live_enable_sends_reviewed_target_before_enabling(self) -> None:
+        class Robot:
+            def __init__(self) -> None:
+                self.actions: list[dict[str, float]] = []
+
+            def send_action(self, action: dict[str, float]) -> None:
+                self.actions.append(action)
+
+        robot = Robot()
+        self.bridge.live = True
+        self.bridge.robot = robot
+        target = {joint: 2.0 for joint in bridge_module.JOINTS}
+
+        await self.bridge.enable_control(target)
+
+        self.assertEqual(robot.actions, [{f"{joint}.pos": 2.0 for joint in bridge_module.JOINTS}])
+        self.assertTrue(self.bridge.state.enabled)
+        self.assertEqual(self.bridge.state.positions, target)
+
+    async def test_live_enable_failure_does_not_enable(self) -> None:
+        class Robot:
+            def send_action(self, action: dict[str, float]) -> None:
+                raise RuntimeError("send failed")
+
+        self.bridge.live = True
+        self.bridge.robot = Robot()
+        target = {joint: 2.0 for joint in bridge_module.JOINTS}
+
+        with self.assertRaisesRegex(RuntimeError, "send failed"):
+            await self.bridge.enable_control(target)
+
+        self.assertFalse(self.bridge.state.enabled)
+        self.assertEqual(self.bridge.state.positions, {joint: 0.0 for joint in bridge_module.JOINTS})
 
 
 if __name__ == "__main__":

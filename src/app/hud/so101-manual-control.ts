@@ -185,7 +185,7 @@ const captureCap = (joint: JointName, end: CapEnd): void => {
   if (bridge === null || !bridge.connected || bridge.enabled || state.setupPending) return;
   const current = displayedPositions()[joint];
   const caps = copyCaps(bridge);
-  const result = captureCapValue(caps[joint], current, end);
+  const result = captureCapValue(caps[joint], bridge.calibration_limits[joint], current, end);
   if (!result.ok) {
     state.error = end === "min" ? `${JOINT_LABELS[joint]} low capture must be below its high cap` : `${JOINT_LABELS[joint]} high capture must be above its low cap`;
     return;

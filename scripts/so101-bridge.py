@@ -59,6 +59,7 @@ class So101Bridge:
             self.robot = SO101Follower(config)
             await asyncio.to_thread(self.robot.connect, calibrate=False)
             self._read_calibration_limits()
+            self.limits = dict(self.calibration_limits)
             observation = await asyncio.to_thread(self.robot.get_observation)
             observed = {joint: float(observation[f"{joint}.pos"]) for joint in JOINTS}
             self.state.positions = self._clamp_positions(observed)
@@ -162,10 +163,13 @@ class So101Bridge:
         self.state.positions = positions
         self.state.last_command_at = time.monotonic()
 
-    def enable_control(self, value: Any = None) -> None:
+    async def enable_control(self, value: Any = None) -> None:
         if not self.state.connected:
             raise ValueError("connect before enabling control")
         positions = self._validate_positions(self.state.positions if value is None else value)
+        if self.live:
+            action = {f"{joint}.pos": position for joint, position in positions.items()}
+            await asyncio.to_thread(self.robot.send_action, action)
         self.state.positions = positions
         self.state.enabled = True
         self.state.last_command_at = time.monotonic()
@@ -211,7 +215,7 @@ async def serve_client(bridge: So101Bridge, websocket: Any) -> None:
             elif kind == "disconnect":
                 await bridge.disconnect()
             elif kind == "enable":
-                bridge.enable_control(message.get("positions"))
+                await bridge.enable_control(message.get("positions"))
             elif kind == "disable":
                 bridge.state.enabled = False
             elif kind == "set-target":

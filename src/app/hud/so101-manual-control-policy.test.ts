@@ -6,14 +6,19 @@ describe("SO-101 cap policy", () => {
 
   it("captures a low and high endpoint without mutating the current caps", () => {
     const caps = [-90, 90] as const;
-    expect(captureCap(caps, -40, "min")).toEqual({ ok: true, caps: [-40, 90] });
-    expect(captureCap(caps, 40, "max")).toEqual({ ok: true, caps: [-90, 40] });
+    expect(captureCap(caps, calibration, -40, "min")).toEqual({ ok: true, caps: [-40, 90] });
+    expect(captureCap(caps, calibration, 40, "max")).toEqual({ ok: true, caps: [-90, 40] });
     expect(caps).toEqual([-90, 90]);
   });
 
   it("rejects a capture that would invert the active range", () => {
-    expect(captureCap([-90, 90], 90, "min")).toEqual({ ok: false, reason: "empty-range" });
-    expect(captureCap([-90, 90], -90, "max")).toEqual({ ok: false, reason: "empty-range" });
+    expect(captureCap([-90, 90], calibration, 90, "min")).toEqual({ ok: false, reason: "empty-range" });
+    expect(captureCap([-90, 90], calibration, -90, "max")).toEqual({ ok: false, reason: "empty-range" });
+  });
+
+  it("rejects captures outside calibration", () => {
+    expect(captureCap([-90, 90], calibration, -181, "min")).toEqual({ ok: false, reason: "invalid-value" });
+    expect(captureCap([-90, 90], calibration, 181, "max")).toEqual({ ok: false, reason: "invalid-value" });
   });
 
   it("clamps slider cap edits to calibration and keeps a non-empty range", () => {

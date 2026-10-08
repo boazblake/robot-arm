@@ -16,9 +16,10 @@ const updateCap: UpdateCap = (caps, calibration, end, value) => {
   return { ok: true, caps: next };
 };
 
-export type CaptureCap = (caps: CapRange, current: number, end: CapEnd) => CapUpdateResult;
-const captureCap: CaptureCap = (caps, current, end) => {
+export type CaptureCap = (caps: CapRange, calibration: CapRange, current: number, end: CapEnd) => CapUpdateResult;
+const captureCap: CaptureCap = (caps, calibration, current, end) => {
   if (!Number.isFinite(current)) return { ok: false, reason: "invalid-value" };
+  if (current < calibration[0] || current > calibration[1]) return { ok: false, reason: "invalid-value" };
   const next: [number, number] = end === "min" ? [current, caps[1]] : [caps[0], current];
   return next[0] < next[1] ? { ok: true, caps: next } : { ok: false, reason: "empty-range" };
 };
