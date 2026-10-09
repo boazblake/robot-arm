@@ -210,7 +210,11 @@ const connectBridge = (): void => {
     }
     m.redraw();
   };
-  socket.onopen = () => { if (state.socket === socket) logEvent("bridge-websocket-open"); };
+  socket.onopen = () => {
+    if (state.socket !== socket) return;
+    logEvent("bridge-websocket-open");
+    m.redraw();
+  };
   socket.onerror = () => { if (state.socket !== socket) return; state.enablePending = false; state.error = "Bridge unavailable"; logEvent("bridge-websocket-error"); m.redraw(); };
   socket.onclose = () => {
     if (state.socket !== socket) return;
@@ -455,7 +459,7 @@ const ManualControl: m.Component = {
       m("div.so101-operator-bar", [
         m("div.so101-actions", [
           m("button", { onclick: connectBridge }, "Connect bridge"),
-          m("button", { disabled: bridge === null, onclick: () => { logEvent("robot-connect-requested"); send({ type: "connect" }); } }, "Connect robot"),
+          m("button", { disabled: state.socket?.readyState !== WebSocket.OPEN, onclick: () => { logEvent("robot-connect-requested"); send({ type: "connect" }); } }, "Connect robot"),
           m("button.so101-stop", { disabled: bridge === null, onclick: () => { logEvent("stop-requested"); setView("setup"); send({ type: "stop" }); } }, "STOP"),
         ]),
       ]),
