@@ -67,13 +67,9 @@ When Requirement 4 architecture boundary tests run
 Then camera, MediaPipe integration, normalization, rendering, geometry, and session boundaries pass
 And the tracking modules contain no fitness analysis
 
-Scenario: Production source has no robot-control implementation
+Scenario: Production source keeps manual control within its defined boundary
 When production source and dependency declarations are inspected
-Then no `RobotTarget` domain type exists
-And no `RobotAdapter` exists
-And no robot-control package exists
-And no ROS dependency exists
-And no servo-control dependency exists
+Then SO-101 manual control may use a local LeRobot bridge
 And no inverse-kinematics implementation exists
 And no simulator integration exists
 And BDD references to future robotics concepts are allowed
@@ -105,7 +101,6 @@ And `npm run build` is `PASS`
 And `npm run verify:cleanup` is `PASS`
 And Requirements 1, 3, 4, 5, 6, and 7 are satisfied
 And Requirement 5 includes documented native status
-And Requirement 9 implementation has not started
 When repository stabilization is complete
 Then Requirements 1 through 8 are satisfied
-And the repository is READY for robot-control development
+And the repository is READY for the next robotics requirement

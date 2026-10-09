@@ -13,7 +13,7 @@ Reviewed the current SO-101 manual-control surface and these reference sites:
 
 ## Chosen direction
 
-Keep the existing functional Mithril/WebSocket control core, but rebuild the presentation as a centered black technical workspace: thin rules, mono metadata, compact navigation/status bands, sparse white typography, and a single acid accent with coral safety state. This translates the shared primitives without copying any reference layout or branding.
+Keep the existing functional Mithril/WebSocket control core, but rebuild the presentation as a centered light technical workspace: thin rules, mono metadata, compact navigation/status bands, sparse dark typography, and green/coral status accents. This translates the shared primitives without copying any reference layout or branding.
 
 ## Rejected alternative
 
@@ -21,8 +21,10 @@ A large decorative dashboard with rounded cards and persistent gradient surfaces
 
 ## Acceptance criteria
 
-- The control surface reads as a black, centered editorial/technical workspace.
+- The control surface reads as a light, centered editorial/technical workspace.
 - Bridge state, safety, controls, current position, and configuration remain discoverable.
-- Joystick interaction and responsive behavior remain unchanged.
+- Setup, review, and enabled-control states are distinct.
+- Joystick direction cues clarify expected arm movement without changing control mapping.
+- Joystick interaction remains horizontal and responsive on mobile widths.
 - Focus states and reduced-motion behavior remain accessible.
 - Typecheck and production build pass.
