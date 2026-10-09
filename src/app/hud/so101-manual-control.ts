@@ -3,10 +3,13 @@ import "./so101-manual-control.css";
 import { logEvent } from "../../observability/effect-logger";
 import { captureCap as captureCapValue, updateCap as updateCapValue } from "./so101-manual-control-policy";
 import {
+  advanceVisualAnimation,
   consumeVisualPositionStream,
   createVisualAnimationState,
+  gripperJawOffsets,
   setVisualAnimationTarget,
-  visualAnimationTarget,
+  visualAnimationPosition,
+  visualAnimationSettled,
   type JointName,
   type ManualView,
   type VisualAnimationState,
@@ -85,7 +88,10 @@ const state: ComponentState = {
 let heartbeatTimer: number | null = null;
 let capCommitTimer: number | null = null;
 let setupRequestTimer: number | null = null;
+let visualAnimationFrame: number | null = null;
+let visualAnimationTimestamp: number | null = null;
 const SETUP_REQUEST_TIMEOUT_MS = 1000;
+const VISUAL_ANIMATION_DURATION_MS = 180;
 
 const send = (message: Readonly<Record<string, unknown>>): void => {
   if (state.socket?.readyState === WebSocket.OPEN) state.socket.send(JSON.stringify(message));
@@ -136,13 +142,33 @@ const currentCaps = (bridge: BridgeState): Record<JointName, [number, number]> =
   state.pendingCaps === null ? copyCaps(bridge) : state.pendingCaps;
 const displayedPositions = (): Record<JointName, number> =>
   state.view === "preview" ? state.previewPositions : state.positions;
-const animationPositions = (): JointPositions =>
-  state.view === "preview" ? state.previewPositions : visualAnimationTarget(state.visualAnimation);
+const animationPositions = (): JointPositions => visualAnimationPosition(state.visualAnimation);
+const animateVisualArm = (timestamp: number): void => {
+  if (visualAnimationTimestamp === null) visualAnimationTimestamp = timestamp;
+  const elapsed = Math.max(0, timestamp - visualAnimationTimestamp);
+  visualAnimationTimestamp = timestamp;
+  state.visualAnimation = advanceVisualAnimation(state.visualAnimation, elapsed / VISUAL_ANIMATION_DURATION_MS);
+  m.redraw();
+  if (visualAnimationSettled(state.visualAnimation)) {
+    visualAnimationFrame = null;
+    visualAnimationTimestamp = null;
+    return;
+  }
+  visualAnimationFrame = window.requestAnimationFrame(animateVisualArm);
+};
+const startVisualAnimation = (): void => {
+  if (visualAnimationFrame !== null) return;
+  visualAnimationTimestamp = null;
+  visualAnimationFrame = window.requestAnimationFrame(animateVisualArm);
+};
 const setVisualTarget = (positions: JointPositions): void => {
   state.visualAnimation = setVisualAnimationTarget(state.visualAnimation, positions);
+  startVisualAnimation();
 };
 const consumeVisualStream = (positions: JointPositions): void => {
-  state.visualAnimation = consumeVisualPositionStream(state.view, state.visualAnimation, positions);
+  const current = state.visualAnimation;
+  state.visualAnimation = consumeVisualPositionStream(state.view, current, positions);
+  if (state.visualAnimation !== current) startVisualAnimation();
 };
 const setDisplayedPosition = (joint: JointName, value: number): void => {
   if (state.view === "preview") state.previewPositions = { ...state.previewPositions, [joint]: value };
@@ -150,7 +176,10 @@ const setDisplayedPosition = (joint: JointName, value: number): void => {
 };
 const setView = (view: ManualView): void => {
   state.view = view;
-  if (view === "preview") state.previewPositions = { ...state.positions };
+  if (view === "preview") {
+    state.previewPositions = { ...state.positions };
+    setVisualTarget(state.previewPositions);
+  }
   if (view !== "control") {
     state.activeJoystick = null;
     state.joystickBases = {};
@@ -422,6 +451,16 @@ const directionCue = (bridge: BridgeState, group: JoystickGroup): m.Children => 
     m("span.so101-motion-cue", [m("span.so101-elbow-solid", { style: { transform: `rotate(${elbowAngle}deg)` } }), m("span.so101-elbow-ghost", ghost(elbowAngle, elbowMove, 44))]),
   ]);
 };
+const gripperCue = (bridge: BridgeState): m.Children => {
+  const positions = animationPositions();
+  const [low, high] = bridge.limits.gripper;
+  const ratio = clamp((positions.gripper - (low + high) / 2) / ((high - low) / 2), [-1, 1]);
+  const [leftOffset, rightOffset] = gripperJawOffsets(ratio);
+  return m("div.so101-gripper-motion", { "aria-label": "Gripper animation" }, [
+    m("span.so101-gripper-jaw.so101-gripper-left", { style: { transform: `translateX(${leftOffset}px) rotate(-12deg)` } }),
+    m("span.so101-gripper-jaw.so101-gripper-right", { style: { transform: `translateX(${rightOffset}px) rotate(12deg)` } }),
+  ]);
+};
 const joystickCard = (bridge: BridgeState, group: JoystickGroup): m.Vnode => {
   const positions = displayedPositions();
   const [verticalAxis, horizontalAxis] = group.axes;
@@ -497,6 +536,7 @@ const ManualControl: m.Component = {
           m("div.so101-operation-heading", m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready || state.enablePending, onclick: () => { if (state.enablePending) return; state.enablePending = true; send({ type: "enable", positions: state.previewPositions }); } }, "Enable") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])),
           m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => joystickCard(bridge, group))),
           m("label.so101-gripper-slider", [m("div.so101-joint-heading", [m("strong", "Gripper"), m("output", displayedPositions().gripper.toFixed(1))]), m("input", { type: "range", min: bridge.limits.gripper[0], max: bridge.limits.gripper[1], step: 0.1, value: displayedPositions().gripper, disabled: state.view === "control" ? !bridge.enabled : false, oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value) })]),
+          gripperCue(bridge),
         ]),
       ]),
     ]);
