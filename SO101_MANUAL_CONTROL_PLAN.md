@@ -1,8 +1,8 @@
-# SO-101 Manual Control Plan
+# SO-101 Manual Control
 
 ## Scope
 
-Add manual joint control without inverse kinematics. The app will send six calibrated joint targets to a local LeRobot bridge only after explicit enablement.
+Manual joint control without inverse kinematics. The app sends six calibrated joint targets to a local LeRobot bridge only after explicit enablement.
 
 ## Boundary
 
@@ -19,7 +19,7 @@ Add manual joint control without inverse kinematics. The app will send six calib
 - Emergency stop disconnects the follower and disables further commands until reconnect.
 - No hardware command is sent during browser startup or bridge connection.
 
-## Verification gates
+## Operational verification
 
 1. Unit-test message parsing, complete-joint validation, limit enforcement, stale timeout, and disabled/stop states.
 2. Run bridge in dry-run mode and verify commands without a robot connection.

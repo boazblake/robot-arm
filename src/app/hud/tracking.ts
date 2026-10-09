@@ -11,8 +11,13 @@ const Tracking: m.Component = {
   view: () => m("section.tracking", [
     m("nav.tracking-mode-switcher", { "aria-label": "Control view" }, [
       m("span.tracking-mode-label", "CONTROL SURFACE"),
-      m("button", { class: viewMode === "manual" ? "active" : "", onclick: () => { viewMode = "manual"; } }, "Manual"),
-      m("button", { class: viewMode === "pose" ? "active" : "", onclick: () => { viewMode = "pose"; } }, "Camera / pose"),
+      m("fieldset.tracking-segmented-control", [
+        m("legend.sr-only", "Control view"),
+        m("input.tracking-segment-radio", { id: "tracking-manual", type: "radio", name: "tracking-view", value: "manual", checked: viewMode === "manual", onchange: () => { viewMode = "manual"; } }),
+        m("label", { for: "tracking-manual" }, "Manual"),
+        m("input.tracking-segment-radio", { id: "tracking-pose", type: "radio", name: "tracking-view", value: "pose", checked: viewMode === "pose", onchange: () => { viewMode = "pose"; } }),
+        m("label", { for: "tracking-pose" }, "Camera / pose"),
+      ]),
     ]),
     viewMode === "manual" ? m(ManualControl) : m(TrackingViewer),
   ]),

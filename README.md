@@ -1,6 +1,6 @@
 # Robot Arm
 
-A TypeScript human-motion tracking foundation for future robotics work. This repository intentionally does not implement robot control.
+A TypeScript human-motion tracking foundation for robotics work, including SO-101 manual control.
 
 ## Capabilities
 

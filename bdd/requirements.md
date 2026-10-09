@@ -1,6 +1,6 @@
 # Robot Arm requirements
 
-The authoritative BDD specification is the requirement files in this directory. Requirements 01–08 are the foundational tracking repository. Requirements 09–30 define the sequential teleoperation and NASA/iMETRO roadmap.
+The authoritative BDD specification is the requirement files in this directory. Requirements 01–08 cover repository foundation, development readiness, and initial SO-101 manual control. Requirements 09–30 define the sequential teleoperation and NASA/iMETRO roadmap.
 
 ## Requirement files
 
