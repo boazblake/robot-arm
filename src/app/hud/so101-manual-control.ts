@@ -37,6 +37,7 @@ type ComponentState = {
   setupPending: boolean;
   pendingCaps: Record<JointName, [number, number]> | null;
   pendingCapRequest: Record<JointName, [number, number]> | null;
+  enablePending: boolean;
 };
 
 const JOINT_LABELS: Readonly<Record<JointName, string>> = {
@@ -69,6 +70,7 @@ const state: ComponentState = {
   setupPending: false,
   pendingCaps: null,
   pendingCapRequest: null,
+  enablePending: false,
 };
 let heartbeatTimer: number | null = null;
 let capCommitTimer: number | null = null;
@@ -169,6 +171,7 @@ const connectBridge = (): void => {
     const error = parseError(value);
     if (next !== null) {
       clearSetupRequestTimer();
+      state.enablePending = false;
       const wasPreviewing = state.view === "preview";
       state.bridge = next;
       state.setupPending = false;
@@ -187,6 +190,7 @@ const connectBridge = (): void => {
       logEvent("bridge-state", { connected: next.connected, enabled: next.enabled, live: next.live });
     } else if (error !== null) {
       clearSetupRequestTimer();
+      state.enablePending = false;
       const hadPendingCapRequest = state.pendingCapRequest !== null;
       state.setupPending = false;
       if (hadPendingCapRequest) state.pendingCaps = null;
@@ -207,12 +211,13 @@ const connectBridge = (): void => {
     m.redraw();
   };
   socket.onopen = () => { if (state.socket === socket) logEvent("bridge-websocket-open"); };
-  socket.onerror = () => { if (state.socket !== socket) return; state.error = "Bridge unavailable"; logEvent("bridge-websocket-error"); m.redraw(); };
+  socket.onerror = () => { if (state.socket !== socket) return; state.enablePending = false; state.error = "Bridge unavailable"; logEvent("bridge-websocket-error"); m.redraw(); };
   socket.onclose = () => {
     if (state.socket !== socket) return;
     if (capCommitTimer !== null) window.clearTimeout(capCommitTimer);
     capCommitTimer = null;
     clearSetupRequestTimer();
+    state.enablePending = false;
     state.setupPending = false;
     state.pendingCaps = null;
     state.pendingCapRequest = null;
@@ -461,7 +466,7 @@ const ManualControl: m.Component = {
           m("div.so101-cap-grid", JOINTS.map((joint) => capRow(bridge, joint))),
           m("div.so101-setup-actions", [m("button", { disabled: !bridge.connected || bridge.enabled || state.setupPending, onclick: resetCaps }, "Reset"), m("button.so101-primary", { disabled: !ready || bridge.enabled || state.setupPending, onclick: () => setView("preview") }, "Review →")]),
         ]) : m("section.so101-operation", [
-          m("div.so101-operation-heading", m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready, onclick: () => send({ type: "enable", positions: state.previewPositions }) }, "Enable") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])),
+          m("div.so101-operation-heading", m("div.so101-actions", [m("button", { onclick: () => { if (state.view === "control") send({ type: "disable" }); setView("setup"); } }, "Setup"), state.view === "preview" ? m("button.so101-primary", { disabled: !ready || state.enablePending, onclick: () => { if (state.enablePending) return; state.enablePending = true; send({ type: "enable", positions: state.previewPositions }); } }, "Enable") : m("button", { onclick: () => { setView("preview"); send({ type: "disable" }); } }, "Disable")])),
           m("div.so101-joysticks", JOYSTICK_GROUPS.map((group) => joystickCard(bridge, group))),
           m("label.so101-gripper-slider", [m("div.so101-joint-heading", [m("strong", "Gripper"), m("output", displayedPositions().gripper.toFixed(1))]), m("input", { type: "range", min: bridge.limits.gripper[0], max: bridge.limits.gripper[1], step: 0.1, value: displayedPositions().gripper, disabled: state.view === "control" ? !bridge.enabled : false, oninput: (event: Event) => setPosition("gripper", (event.target as HTMLInputElement).value) })]),
         ]),
