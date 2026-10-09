@@ -84,7 +84,6 @@
 }
 @media (max-width: 35rem) {
   .so101-manual-control { padding: .8rem; }
-  .so101-joysticks { grid-template-columns: 1fr; }
   .so101-joystick-layout { grid-template-columns: minmax(0, 1fr); gap: .6rem; }
   .so101-joystick { width: min(100%, 15rem); justify-self: center; }
   .so101-motion-cue { transform: scale(.85); }
