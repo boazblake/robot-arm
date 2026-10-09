@@ -194,6 +194,7 @@ const connectBridge = (): void => {
       if (hadPendingCapRequest && state.bridge?.connected && !state.bridge.enabled) {
         state.setupPending = true;
         send({ type: "refresh" });
+        armSetupRequestTimer();
       }
       state.error = error.message;
       if (error.message.includes("disconnected") || error.message.includes("control is disabled")) {
