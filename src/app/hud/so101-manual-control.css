@@ -25,6 +25,8 @@
 .so101-manual-control header, .so101-operator-bar, .so101-setup-heading, .so101-operation-heading, .so101-joint-heading { display: flex; align-items: center; gap: .75rem; }
 .so101-manual-control header, .so101-operator-bar, .so101-setup-heading, .so101-operation-heading { justify-content: space-between; }
 .so101-heading { display: grid; gap: .2rem; }
+.so101-status { display: grid; gap: .2rem; justify-items: end; color: var(--so101-dim); font-size: .58rem; letter-spacing: .06em; text-align: right; text-transform: uppercase; }
+.so101-status strong { color: var(--so101-signal); font-size: .72rem; }
 .so101-manual-control label { color: var(--so101-dim); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
 .so101-heading h1, .so101-manual-control h2, .so101-manual-control p { margin: 0; }
 .so101-heading h1 { font-size: clamp(1.15rem, 3vw, 1.7rem); letter-spacing: -.04em; }

@@ -446,7 +446,7 @@ const ManualControl: m.Component = {
     const bridge = state.bridge;
     const ready = bridge?.connected === true;
     return m("section.so101-manual-control", [
-      m("header", [m("div.so101-heading", m("h1", "SO—101"))]),
+      m("header", [m("div.so101-heading", m("h1", "SO—101")), m("div.so101-status", [m("strong", bridge === null ? "OFFLINE" : bridge.live ? "LIVE" : "DRY RUN"), m("span", "Clear arm before enable")])]),
       m("div.so101-operator-bar", [
         m("div.so101-actions", [
           m("button", { onclick: connectBridge }, "Connect bridge"),
