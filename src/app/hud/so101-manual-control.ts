@@ -2,15 +2,23 @@ import m from "mithril";
 import "./so101-manual-control.css";
 import { logEvent } from "../../observability/effect-logger";
 import { captureCap as captureCapValue, updateCap as updateCapValue } from "./so101-manual-control-policy";
+import {
+  consumeVisualPositionStream,
+  createVisualAnimationState,
+  setVisualAnimationTarget,
+  visualAnimationTarget,
+  type JointName,
+  type ManualView,
+  type VisualAnimationState,
+} from "./so101-manual-control-visual";
 
-type JointName = "shoulder_pan" | "shoulder_lift" | "elbow_flex" | "wrist_flex" | "wrist_roll" | "gripper";
+type JointPositions = Readonly<Record<JointName, number>>;
 type JoystickGroup = Readonly<{
   readonly name: string;
   readonly axes: readonly [JointName] | readonly [JointName, JointName];
   readonly zoned?: JointName;
   readonly invertHorizontal?: boolean;
 }>;
-type ManualView = "setup" | "preview" | "control";
 type CapEnd = "min" | "max";
 
 type BridgeState = Readonly<{
@@ -31,6 +39,7 @@ type ComponentState = {
   view: ManualView;
   positions: Record<JointName, number>;
   previewPositions: Record<JointName, number>;
+  visualAnimation: VisualAnimationState;
   joystickRatios: Record<string, readonly [number, number]>;
   joystickBases: Record<string, Record<JointName, number>>;
   activeJoystick: string | null;
@@ -64,6 +73,7 @@ const state: ComponentState = {
   view: "setup",
   positions: initialPositions(),
   previewPositions: initialPositions(),
+  visualAnimation: createVisualAnimationState(initialPositions()),
   joystickRatios: {},
   joystickBases: {},
   activeJoystick: null,
@@ -126,6 +136,14 @@ const currentCaps = (bridge: BridgeState): Record<JointName, [number, number]> =
   state.pendingCaps === null ? copyCaps(bridge) : state.pendingCaps;
 const displayedPositions = (): Record<JointName, number> =>
   state.view === "preview" ? state.previewPositions : state.positions;
+const animationPositions = (): JointPositions =>
+  state.view === "preview" ? state.previewPositions : visualAnimationTarget(state.visualAnimation);
+const setVisualTarget = (positions: JointPositions): void => {
+  state.visualAnimation = setVisualAnimationTarget(state.visualAnimation, positions);
+};
+const consumeVisualStream = (positions: JointPositions): void => {
+  state.visualAnimation = consumeVisualPositionStream(state.view, state.visualAnimation, positions);
+};
 const setDisplayedPosition = (joint: JointName, value: number): void => {
   if (state.view === "preview") state.previewPositions = { ...state.previewPositions, [joint]: value };
   else state.positions = { ...state.positions, [joint]: value };
@@ -177,10 +195,14 @@ const connectBridge = (): void => {
       state.setupPending = false;
       if (state.pendingCapRequest !== null && state.pendingCaps === state.pendingCapRequest) state.pendingCaps = null;
       state.pendingCapRequest = null;
+      consumeVisualStream(next.positions);
       if (state.activeJoystick === null && !(wasPreviewing && next.enabled)) state.positions = { ...state.positions, ...next.positions };
       if (!next.connected) setView("setup");
       else if (next.enabled) {
-        if (wasPreviewing) state.positions = { ...state.previewPositions };
+        if (wasPreviewing) {
+          state.positions = { ...state.previewPositions };
+          setVisualTarget(state.positions);
+        }
         setView("control");
       }
       else if (state.view === "control") setView("preview");
@@ -238,6 +260,7 @@ const setPosition = (joint: JointName, raw: string): void => {
   if (bridge === null) return;
   const value = clamp(Number(raw), bridge.limits[joint]);
   setDisplayedPosition(joint, value);
+  setVisualTarget(displayedPositions());
   logEvent("joint-slider-changed", { joint, value });
   if (bridge.enabled && state.view === "control") send({ type: "set-target", positions: state.positions });
 };
@@ -325,6 +348,7 @@ const applyJoystickTarget = (group: JoystickGroup): void => {
   }
   if (state.view === "preview") state.previewPositions = next;
   else state.positions = next;
+  setVisualTarget(next);
   if (state.view === "control") send({ type: "set-target", positions: next });
   m.redraw();
 };
@@ -373,7 +397,7 @@ const startGroupJog = (group: JoystickGroup, event: PointerEvent): void => {
 const capPercent = (value: number, range: readonly [number, number]): string =>
   `${((value - range[0]) / (range[1] - range[0])) * 100}%`;
 const directionCue = (bridge: BridgeState, group: JoystickGroup): m.Children => {
-  const positions = displayedPositions();
+  const positions = animationPositions();
   const positionRatio = (joint: JointName): number => {
     const [low, high] = bridge.limits[joint];
     return clamp((positions[joint] - (low + high) / 2) / ((high - low) / 2), [-1, 1]);

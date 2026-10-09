@@ -70,7 +70,7 @@
 .so101-joystick-knob { width: 2rem; height: 2rem; border: .35rem solid var(--so101-signal); background: var(--so101-panel); transition: left .15s ease-out, top .15s ease-out; }
 .so101-motion-cues { display: grid; justify-items: center; gap: .55rem; color: var(--so101-dim); text-align: center; }
 .so101-motion-cue { position: relative; display: block; width: 7rem; height: 5rem; }
-.so101-arm-solid, .so101-arm-ghost, .so101-shoulder-solid, .so101-shoulder-ghost, .so101-elbow-solid, .so101-elbow-ghost { position: absolute; display: block; border-radius: 1rem; transform-origin: left center; }
+.so101-arm-solid, .so101-arm-ghost, .so101-shoulder-solid, .so101-shoulder-ghost, .so101-elbow-solid, .so101-elbow-ghost { position: absolute; display: block; border-radius: 1rem; transform-origin: left center; transition: transform .12s linear; }
 .so101-arm-solid, .so101-arm-ghost { top: 2.3rem; left: 1.25rem; width: 4.5rem; height: .7rem; transform: rotate(-22deg); }
 .so101-arm-solid, .so101-shoulder-solid, .so101-elbow-solid { background: var(--so101-signal); }
 .so101-arm-ghost, .so101-shoulder-ghost, .so101-elbow-ghost { border: 1px dashed var(--so101-signal); background: transparent; opacity: .75; }
@@ -91,5 +91,5 @@
   .so101-motion-cue { transform: scale(.85); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .so101-joystick-knob { transition: none; }
+  .so101-arm-solid, .so101-arm-ghost, .so101-shoulder-solid, .so101-shoulder-ghost, .so101-elbow-solid, .so101-elbow-ghost, .so101-joystick-knob { transition: none; }
 }
