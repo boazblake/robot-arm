@@ -147,7 +147,7 @@ const animateVisualArm = (timestamp: number): void => {
   if (visualAnimationTimestamp === null) visualAnimationTimestamp = timestamp;
   const elapsed = Math.max(0, timestamp - visualAnimationTimestamp);
   visualAnimationTimestamp = timestamp;
-  state.visualAnimation = advanceVisualAnimation(state.visualAnimation, elapsed / VISUAL_ANIMATION_DURATION_MS);
+  state.visualAnimation = advanceVisualAnimation(state.visualAnimation, elapsed, VISUAL_ANIMATION_DURATION_MS);
   m.redraw();
   if (visualAnimationSettled(state.visualAnimation)) {
     visualAnimationFrame = null;
@@ -167,7 +167,7 @@ const setVisualTarget = (positions: JointPositions): void => {
 };
 const consumeVisualStream = (positions: JointPositions): void => {
   const current = state.visualAnimation;
-  state.visualAnimation = consumeVisualPositionStream(state.view, current, positions);
+  state.visualAnimation = consumeVisualPositionStream(state.view, current, positions, state.activeJoystick !== null);
   if (state.visualAnimation !== current) startVisualAnimation();
 };
 const setDisplayedPosition = (joint: JointName, value: number): void => {

@@ -30,14 +30,14 @@ describe("SO-101 visual animation state", () => {
   it("consumes each control position update as the next animation target", () => {
     let animation = createVisualAnimationState(positions(0));
 
-    animation = consumeVisualPositionStream("control", animation, positions(20));
+    animation = consumeVisualPositionStream("control", animation, positions(20), false);
     expect(joint(visualAnimationTarget(animation), "shoulder_lift")).toBe(20);
     expect(joint(visualAnimationPosition(animation), "shoulder_lift")).toBe(0);
 
-    animation = advanceVisualAnimation(animation, 0.5);
+    animation = advanceVisualAnimation(animation, 90, 180);
     expect(joint(visualAnimationPosition(animation), "shoulder_lift")).toBe(10);
 
-    animation = consumeVisualPositionStream("control", animation, positions(40));
+    animation = consumeVisualPositionStream("control", animation, positions(40), false);
     expect(joint(visualAnimationTarget(animation), "shoulder_lift")).toBe(40);
     expect(joint(visualAnimationPosition(animation), "shoulder_lift")).toBe(10);
   });
@@ -47,20 +47,44 @@ describe("SO-101 visual animation state", () => {
       "control",
       createVisualAnimationState(positions(0)),
       positions(80),
+      false,
     );
 
-    animation = advanceVisualAnimation(animation, 0.5);
+    animation = advanceVisualAnimation(animation, 90, 180);
     expect(joint(visualAnimationPosition(animation), "elbow_flex")).toBe(40);
-    animation = advanceVisualAnimation(animation, 0.5);
-    expect(joint(visualAnimationPosition(animation), "elbow_flex")).toBe(60);
+    animation = advanceVisualAnimation(animation, 90, 180);
+    expect(joint(visualAnimationPosition(animation), "elbow_flex")).toBe(80);
   });
 
   it("keeps the reviewed preview target when the bridge streams positions", () => {
     const preview = createVisualAnimationState(positions(10));
-    const next = consumeVisualPositionStream("preview", preview, positions(80));
+    const next = consumeVisualPositionStream("preview", preview, positions(80), false);
 
     expect(next).toBe(preview);
     expect(joint(visualAnimationTarget(next), "elbow_flex")).toBe(10);
+  });
+
+  it("preserves the held joystick target while feedback positions stream", () => {
+    const animation = createVisualAnimationState(positions(10));
+    const next = consumeVisualPositionStream("control", animation, positions(80), true);
+
+    expect(next).toBe(animation);
+    expect(joint(visualAnimationTarget(next), "elbow_flex")).toBe(10);
+  });
+
+  it("does not restart elapsed animation when feedback repeats its target", () => {
+    let animation = consumeVisualPositionStream(
+      "control",
+      createVisualAnimationState(positions(0)),
+      positions(80),
+      false,
+    );
+    animation = advanceVisualAnimation(animation, 90, 180);
+    const repeated = consumeVisualPositionStream("control", animation, positions(80), false);
+
+    expect(repeated).toBe(animation);
+    animation = advanceVisualAnimation(repeated, 90, 180);
+    expect(joint(visualAnimationPosition(animation), "elbow_flex")).toBe(80);
   });
 
   it("does not mutate the command target while consuming visual stream updates", () => {
@@ -69,6 +93,7 @@ describe("SO-101 visual animation state", () => {
       "control",
       createVisualAnimationState(commandTarget),
       positions(30),
+      false,
     );
 
     expect(joint(commandTarget, "shoulder_pan")).toBe(5);

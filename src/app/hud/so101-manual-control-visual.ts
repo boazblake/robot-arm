@@ -4,6 +4,8 @@ export type JointPositions = Readonly<Record<JointName, number>>;
 export type VisualAnimationState = Readonly<{
   readonly current: JointPositions;
   readonly target: JointPositions;
+  readonly origin: JointPositions;
+  readonly elapsedMs: number;
 }>;
 
 const JOINTS: readonly JointName[] = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"];
@@ -19,39 +21,58 @@ type CopyPositions = (positions: JointPositions) => JointPositions;
 const copyPositions: CopyPositions = (positions) => ({ ...positions });
 
 type CreateVisualAnimationState = (positions: JointPositions) => VisualAnimationState;
-export const createVisualAnimationState: CreateVisualAnimationState = (positions) => ({
-  current: copyPositions(positions),
-  target: copyPositions(positions),
-});
+export const createVisualAnimationState: CreateVisualAnimationState = (positions) => {
+  const initial = copyPositions(positions);
+  return {
+    current: initial,
+    target: copyPositions(initial),
+    origin: copyPositions(initial),
+    elapsedMs: 0,
+  };
+};
+
+type PositionsEqual = (left: JointPositions, right: JointPositions) => boolean;
+const positionsEqual: PositionsEqual = (left, right) => JOINTS.every((joint) => left[joint] === right[joint]);
 
 type SetVisualAnimationTarget = (state: VisualAnimationState, positions: JointPositions) => VisualAnimationState;
-export const setVisualAnimationTarget: SetVisualAnimationTarget = (state, positions) => ({
-  current: state.current,
-  target: copyPositions(positions),
-});
+export const setVisualAnimationTarget: SetVisualAnimationTarget = (state, positions) =>
+  positionsEqual(state.target, positions) ? state : {
+    current: state.current,
+    target: copyPositions(positions),
+    origin: copyPositions(state.current),
+    elapsedMs: 0,
+  };
 
 type ConsumeVisualPositionStream = (
   view: ManualView,
   state: VisualAnimationState,
   positions: JointPositions,
+  preserveTarget: boolean,
 ) => VisualAnimationState;
-export const consumeVisualPositionStream: ConsumeVisualPositionStream = (view, state, positions) =>
-  view === "preview" ? state : setVisualAnimationTarget(state, positions);
+export const consumeVisualPositionStream: ConsumeVisualPositionStream = (view, state, positions, preserveTarget) =>
+  view === "preview" || preserveTarget ? state : setVisualAnimationTarget(state, positions);
 
-type AdvanceVisualAnimation = (state: VisualAnimationState, progress: number) => VisualAnimationState;
-export const advanceVisualAnimation: AdvanceVisualAnimation = (state, progress) => {
-  const boundedProgress = Math.min(1, Math.max(0, progress));
+type AdvanceVisualAnimation = (
+  state: VisualAnimationState,
+  elapsedMs: number,
+  durationMs: number,
+) => VisualAnimationState;
+export const advanceVisualAnimation: AdvanceVisualAnimation = (state, elapsedMs, durationMs) => {
+  const boundedDurationMs = Math.max(1, durationMs);
+  const nextElapsedMs = Math.min(boundedDurationMs, state.elapsedMs + Math.max(0, elapsedMs));
+  const progress = nextElapsedMs / boundedDurationMs;
   const next = Object.fromEntries(
-    JOINTS.map((joint) => {
-      const current = state.current[joint];
-      const target = state.target[joint];
-      const value = Math.abs(target - current) < 0.01
-        ? target
-        : current + (target - current) * boundedProgress;
-      return [joint, value];
-    }),
+    JOINTS.map((joint) => [
+      joint,
+      state.origin[joint] + (state.target[joint] - state.origin[joint]) * progress,
+    ]),
   ) as JointPositions;
-  return { current: next, target: state.target };
+  return {
+    current: next,
+    target: state.target,
+    origin: state.origin,
+    elapsedMs: nextElapsedMs,
+  };
 };
 
 type VisualAnimationSettled = (state: VisualAnimationState) => boolean;
