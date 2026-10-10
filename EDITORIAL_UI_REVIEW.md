@@ -24,7 +24,7 @@ A large decorative dashboard with rounded cards and persistent gradient surfaces
 - The control surface reads as a light, centered editorial/technical workspace.
 - Bridge state, safety, controls, current position, and configuration remain discoverable.
 - Setup, review, and enabled-control states are distinct.
-- Joystick direction cues clarify expected arm movement without changing control mapping.
+- Joystick and gripper motion cues clarify expected arm movement without changing control mapping.
 - Joystick interaction remains horizontal and responsive on mobile widths.
 - Focus states and reduced-motion behavior remain accessible.
 - Typecheck and production build pass.
