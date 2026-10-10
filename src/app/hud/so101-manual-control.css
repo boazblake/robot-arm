@@ -70,7 +70,7 @@
 .so101-joystick-knob { width: 2rem; height: 2rem; border: .35rem solid var(--so101-signal); background: var(--so101-panel); transition: left .15s ease-out, top .15s ease-out; }
 .so101-motion-cues { display: grid; justify-items: center; gap: .55rem; color: var(--so101-dim); text-align: center; }
 .so101-motion-cue { position: relative; display: block; width: 7rem; height: 5rem; }
-.so101-arm-solid, .so101-arm-ghost, .so101-shoulder-solid, .so101-shoulder-ghost, .so101-elbow-solid, .so101-elbow-ghost { position: absolute; display: block; border-radius: 1rem; transform-origin: left center; }
+.so101-arm-solid, .so101-arm-ghost, .so101-shoulder-solid, .so101-shoulder-ghost, .so101-elbow-solid, .so101-elbow-ghost, .so101-gripper-jaw { position: absolute; display: block; border-radius: 1rem; transform-origin: left center; transition: transform .12s linear; }
 .so101-arm-solid, .so101-arm-ghost { top: 2.3rem; left: 1.25rem; width: 4.5rem; height: .7rem; transform: rotate(-22deg); }
 .so101-arm-solid, .so101-shoulder-solid, .so101-elbow-solid { background: var(--so101-signal); }
 .so101-arm-ghost, .so101-shoulder-ghost, .so101-elbow-ghost { border: 1px dashed var(--so101-signal); background: transparent; opacity: .75; }
@@ -79,6 +79,13 @@
 .so101-shoulder-ghost { left: 2.6rem; transform: rotate(25deg); }
 .so101-elbow-solid, .so101-elbow-ghost { top: 2.1rem; left: 2.75rem; width: 3.1rem; height: .58rem; transform: rotate(-24deg); }
 .so101-elbow-ghost { transform: rotate(24deg); }
+.so101-gripper-motion { position: relative; display: block; width: 7rem; height: 5rem; margin-inline: auto; }
+.so101-gripper-jaw { top: 2.2rem; width: 2.5rem; height: .65rem; background: var(--so101-signal); }
+.so101-gripper-left { left: 1rem; transform-origin: right center; }
+.so101-gripper-right { left: 3.5rem; transform-origin: left center; }
+.so101-gripper-jaw::after { content: ""; position: absolute; top: -.35rem; width: .65rem; height: 1.35rem; border-radius: .3rem; background: var(--so101-signal); }
+.so101-gripper-left::after { right: -.1rem; }
+.so101-gripper-right::after { left: -.1rem; }
 .so101-gripper-slider { display: grid; gap: .5rem; padding: .75rem; border: 1px solid var(--so101-rule); background: var(--so101-panel); }
 @media (max-width: 52rem) {
   .so101-cap-grid { grid-template-columns: 1fr; }
@@ -91,5 +98,5 @@
   .so101-motion-cue { transform: scale(.85); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .so101-joystick-knob { transition: none; }
+  .so101-arm-solid, .so101-arm-ghost, .so101-shoulder-solid, .so101-shoulder-ghost, .so101-elbow-solid, .so101-elbow-ghost, .so101-gripper-jaw, .so101-joystick-knob { transition: none; }
 }
